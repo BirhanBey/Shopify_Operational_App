@@ -1,0 +1,33 @@
+{%- comment -%}
+  App Embed: Product Page Operations
+  Injects config and loads product page script
+{%- endcomment -%}
+
+<script>
+  window.__EDITOR_PRODUCT_CONFIG__ = Object.assign(
+    {},
+    window.__EDITOR_PRODUCT_CONFIG__,
+    {
+      appUrl: '{{ block.settings.app_url | escape }}',
+      shop: '{{ shop.permanent_domain }}',
+    },
+  );
+  window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;
+</script>
+<script src="{{ 'product-page-operations.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Product Ops Embed",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "info": "Your app backend URL (e.g., https://your-app.ngrok.io)"
+    }
+  ]
+}
+{% endschema %}
+

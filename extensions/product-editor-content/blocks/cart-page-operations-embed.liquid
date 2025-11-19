@@ -1,0 +1,32 @@
+{%- comment -%}
+  App Embed: Cart Page Operations
+  Injects config + loads cart page operations script
+{%- endcomment -%}
+
+<script>
+  window.__EDITOR_CART_CONFIG__ = Object.assign(
+    {},
+    window.__EDITOR_CART_CONFIG__,
+    {
+      appUrl: '{{ block.settings.app_url | escape }}',
+      shop: '{{ shop.permanent_domain }}',
+    },
+  );
+</script>
+<script src="{{ 'cart-page-operations.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Cart Ops Embed",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "info": "Your app backend URL (e.g., https://your-app.ngrok.io)"
+    }
+  ]
+}
+{% endschema %}
+

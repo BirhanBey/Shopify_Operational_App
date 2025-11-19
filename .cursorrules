@@ -1,0 +1,24 @@
+# Project Rules and Guidelines
+
+## Language Rules
+- **Chat Communication**: Always communicate with the user in Turkish (Türkçe)
+- **Code Comments**: All code comments and documentation must be in English
+- **Code Text/Strings**: All text strings, labels, and user-facing text in code must be in English
+- **Variable Names**: Use English for variable names, function names, and identifiers
+
+## Code Style
+- Follow existing code patterns and conventions
+- Write clear, descriptive comments in English
+- Use meaningful variable and function names in English
+
+## Communication Style
+- Explain code changes and concepts in Turkish
+- Provide detailed explanations when requested
+- Break down complex tasks into steps with Turkish explanations
+
+## File Naming & Responsibilities
+- Keep file names aligned with their responsibility; avoid "misc" buckets.
+- Page-level JS assets must follow `<page>-operations.js` (e.g., `cart-page-operations.js`, `product-page-operations.js`) and only contain DOM logic for that page.
+- Theme app embed files must be named `<page>-operations-embed.liquid` and only load/configure the matching JS asset.
+- API route files must be named after the data they serve (e.g., `api.project-thumbnail.jsx`) and handle a single concern.
+- When expanding functionality, either extend the correctly named file or create a new file that follows the same naming pattern.

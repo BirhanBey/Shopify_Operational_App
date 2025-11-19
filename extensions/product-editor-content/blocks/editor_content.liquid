@@ -1,0 +1,467 @@
+<div class="editor-content-block" style="margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 8px;" id="editor-content-{{ block.id }}">
+  <div id="editor-content-loading-{{ block.id }}" style="font-size: 16px; color: #333;">
+    Loading...
+  </div>
+  <div id="editor-content-data-{{ block.id }}" style="display: none;">
+    <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #333;">Editor Settings:</p>
+    <p style="margin: 5px 0; font-size: 14px; color: #666;">
+      <strong>API Key:</strong> <span id="editor-api-key-{{ block.id }}">-</span>
+    </p>
+    <p style="margin: 5px 0; font-size: 14px; color: #666;">
+      <strong>Domain:</strong> <span id="editor-domain-{{ block.id }}">-</span>
+    </p>
+    <p style="margin: 5px 0; font-size: 14px; color: #666;">
+      <strong>Customer ID:</strong> <span id="editor-customer-id-{{ block.id }}">-</span>
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Check for editor return data in URL parameters
+  console.log('[DEBUG] ===== CHECKING FOR EDITOR RETURN DATA =====');
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlHash = window.location.hash;
+  
+  console.log('[DEBUG] Current URL:', window.location.href);
+  console.log('[DEBUG] URL search params:', window.location.search);
+  console.log('[DEBUG] URL hash:', urlHash);
+  
+  // Get all URL parameters
+  const allParams = {};
+  urlParams.forEach((value, key) => {
+    allParams[key] = value;
+  });
+  
+  if (Object.keys(allParams).length > 0) {
+    console.log('[DEBUG] ===== EDITOR RETURN DATA FOUND =====');
+    console.log('[DEBUG] All URL parameters:', allParams);
+    
+    // Log each parameter separately for easier reading
+    Object.keys(allParams).forEach(key => {
+      console.log(`[DEBUG] Parameter "${key}":`, allParams[key]);
+    });
+    
+    // Also log as formatted JSON
+    console.log('[DEBUG] Formatted return data:', JSON.stringify(allParams, null, 2));
+  } else {
+    console.log('[DEBUG] No URL parameters found (not returning from editor)');
+  }
+  
+  // Check hash parameters (some editors use hash instead of query params)
+  if (urlHash) {
+    console.log('[DEBUG] ===== CHECKING URL HASH =====');
+    const hashParams = new URLSearchParams(urlHash.substring(1)); // Remove # symbol
+    const hashData = {};
+    hashParams.forEach((value, key) => {
+      hashData[key] = value;
+    });
+    
+    if (Object.keys(hashData).length > 0) {
+      console.log('[DEBUG] Hash parameters found:', hashData);
+      Object.keys(hashData).forEach(key => {
+        console.log(`[DEBUG] Hash parameter "${key}":`, hashData[key]);
+      });
+      console.log('[DEBUG] Formatted hash data:', JSON.stringify(hashData, null, 2));
+    }
+  }
+  
+  const blockId = '{{ block.id }}';
+  const shop = '{{ shop.permanent_domain }}';
+  const appUrl = '{{ block.settings.app_url }}';
+  const embedActive = Boolean(window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE);
+  
+  console.log('[DEBUG] ===== EDITOR SETTINGS LOADER STARTED =====');
+  console.log('[DEBUG] Block ID:', blockId);
+  console.log('[DEBUG] Shop:', shop);
+  console.log('[DEBUG] App URL from settings:', appUrl);
+  console.log('[DEBUG] App URL type:', typeof appUrl);
+  console.log('[DEBUG] App URL length:', appUrl ? appUrl.length : 0);
+  
+  // Step 1: Create a variable to store editor data
+  // We'll use this variable later in the alert
+  let editorSettings = {
+    editorApiKey: null,
+    editorDomain: null,
+    editorCustomerId: null
+  };
+  
+  // Check if app URL is configured
+  if (!appUrl || appUrl.trim() === '') {
+    console.warn('[DEBUG] App URL is not configured or empty');
+    const loadingEl = document.getElementById('editor-content-loading-' + blockId);
+    if (loadingEl) {
+      loadingEl.innerHTML = '<span style="color: #d32f2f;">⚠️ App URL not configured. Please set the App URL in block settings.</span>';
+    }
+    return;
+  }
+  
+  // Ensure app URL doesn't end with a slash
+  const cleanAppUrl = appUrl.replace(/\/$/, '');
+  console.log('[DEBUG] Cleaned App URL:', cleanAppUrl);
+  
+  // Construct API URL
+  const apiUrl = cleanAppUrl + '/api/editor-settings?shop=' + encodeURIComponent(shop);
+  
+  console.log('[DEBUG] ===== FETCHING EDITOR SETTINGS =====');
+  console.log('[DEBUG] Full API URL:', apiUrl);
+  console.log('[DEBUG] Shop parameter:', shop);
+  console.log('[DEBUG] Encoded shop:', encodeURIComponent(shop));
+  
+  // Test if URL is reachable
+  try {
+    const urlObj = new URL(apiUrl);
+    console.log('[DEBUG] URL parsed successfully');
+    console.log('[DEBUG] URL protocol:', urlObj.protocol);
+    console.log('[DEBUG] URL hostname:', urlObj.hostname);
+    console.log('[DEBUG] URL pathname:', urlObj.pathname);
+    console.log('[DEBUG] URL search:', urlObj.search);
+  } catch (urlError) {
+    console.error('[DEBUG] URL parsing error:', urlError);
+  }
+  
+  fetch(apiUrl)
+    .then(response => {
+      console.log('[DEBUG] ===== FETCH RESPONSE RECEIVED =====');
+      console.log('[DEBUG] Response status:', response.status);
+      console.log('[DEBUG] Response statusText:', response.statusText);
+      console.log('[DEBUG] Response ok:', response.ok);
+      console.log('[DEBUG] Response headers:', response.headers);
+      console.log('[DEBUG] Response URL:', response.url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+      }
+      
+      console.log('[DEBUG] Parsing response as JSON...');
+      return response.json();
+    })
+    .then(data => {
+      console.log('[DEBUG] ===== JSON PARSED SUCCESSFULLY =====');
+      console.log('[DEBUG] Response data:', data);
+      console.log('[DEBUG] Response data type:', typeof data);
+      console.log('[DEBUG] Settings object:', data.settings);
+      
+      const loadingEl = document.getElementById('editor-content-loading-' + blockId);
+      const dataEl = document.getElementById('editor-content-data-' + blockId);
+      
+      console.log('[DEBUG] Loading element:', loadingEl);
+      console.log('[DEBUG] Data element:', dataEl);
+      
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (dataEl) dataEl.style.display = 'block';
+      
+      // Step 2: Store API data both on screen and in variable
+      const settings = data.settings || {};
+      console.log('[DEBUG] Extracted settings:', settings);
+      
+      // Store editor data in variable (for alert)
+      editorSettings = {
+        editorApiKey: settings.editorApiKey || 'Not set',
+        editorDomain: settings.editorDomain || 'Not set',
+        editorCustomerId: settings.editorCustomerId || 'Not set'
+      };
+      
+      console.log('[DEBUG] Editor settings stored:', editorSettings);
+      
+      const apiKeyEl = document.getElementById('editor-api-key-' + blockId);
+      const domainEl = document.getElementById('editor-domain-' + blockId);
+      const customerIdEl = document.getElementById('editor-customer-id-' + blockId);
+      
+      console.log('[DEBUG] API Key element:', apiKeyEl);
+      console.log('[DEBUG] Domain element:', domainEl);
+      console.log('[DEBUG] Customer ID element:', customerIdEl);
+      
+      if (apiKeyEl) {
+        apiKeyEl.textContent = editorSettings.editorApiKey;
+        console.log('[DEBUG] API Key set to:', editorSettings.editorApiKey);
+      }
+      if (domainEl) {
+        domainEl.textContent = editorSettings.editorDomain;
+        console.log('[DEBUG] Domain set to:', editorSettings.editorDomain);
+      }
+      if (customerIdEl) {
+        customerIdEl.textContent = editorSettings.editorCustomerId;
+        console.log('[DEBUG] Customer ID set to:', editorSettings.editorCustomerId);
+      }
+      
+      // Step 3: Start listening to "Add to cart" button after data is loaded
+      if (embedActive) {
+        console.log('[DEBUG] Product page operations embed is active; skipping local setupAddToCartListener');
+      } else {
+        console.log('[DEBUG] Editor settings loaded successfully, calling setupAddToCartListener');
+        setupAddToCartListener();
+      }
+    })
+    .catch(error => {
+      console.error('[DEBUG] ===== ERROR LOADING EDITOR SETTINGS =====');
+      console.error('[DEBUG] Error type:', error.constructor.name);
+      console.error('[DEBUG] Error message:', error.message);
+      console.error('[DEBUG] Error stack:', error.stack);
+      console.error('[DEBUG] Full error object:', error);
+      
+      // Check error type for more details
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        console.error('[DEBUG] Network error detected - URL might be unreachable');
+        console.error('[DEBUG] This usually means:');
+        console.error('[DEBUG] 1. App URL is incorrect or expired (Cloudflare tunnel URLs change)');
+        console.error('[DEBUG] 2. Dev server is not running');
+        console.error('[DEBUG] 3. CORS issue (but this would show different error)');
+      }
+      
+      const loadingEl = document.getElementById('editor-content-loading-' + blockId);
+      if (loadingEl) {
+        const errorMessage = `Error loading settings: ${error.message}\n\nPlease check:\n1. App URL is correct in block settings\n2. Dev server is running\n3. App URL matches the current tunnel URL`;
+        loadingEl.innerHTML = '<span style="color: #d32f2f;">' + errorMessage.replace(/\n/g, '<br>') + '</span>';
+      }
+    });
+  
+  // Step 4: Function to listen to "Add to cart" button
+  function setupAddToCartListener() {
+    console.log('[DEBUG] setupAddToCartListener called');
+    
+    // Use event delegation at document level with capture phase
+    // This ensures we catch the event before any other handlers
+    let isSubmitting = false;
+    
+    const handleDocumentSubmit = function(event) {
+      const form = event.target;
+      
+      // Check if this is a cart add form
+      if (form && form.tagName === 'FORM' && form.action && form.action.includes('/cart/add')) {
+        console.log('[DEBUG] Cart add form submit detected!');
+        console.log('[DEBUG] Form:', form);
+        console.log('[DEBUG] Form action:', form.action);
+        console.log('[DEBUG] Event:', event);
+        console.log('[DEBUG] isSubmitting flag:', isSubmitting);
+        
+        // Prevent infinite loop - if we're already submitting, let it go
+        if (isSubmitting) {
+          console.log('[DEBUG] Already submitting, allowing form submission');
+          return;
+        }
+        
+        // Prevent default form submission
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        console.log('[DEBUG] preventDefault() and stopImmediatePropagation() called');
+        
+        // Extract form data to build cart add URL
+        const formData = new FormData(form);
+        const variantId = formData.get('id') || form.querySelector('[name="id"]')?.value || form.querySelector('input[name="id"]')?.value;
+        const quantity = formData.get('quantity') || form.querySelector('[name="quantity"]')?.value || '1';
+        
+        console.log('[DEBUG] Form data extracted:');
+        console.log('[DEBUG] Variant ID:', variantId);
+        console.log('[DEBUG] Quantity:', quantity);
+        
+        if (!variantId) {
+          console.error('[DEBUG] Could not find variant ID in form');
+          alert('Error: Could not find product variant ID');
+          // Fallback: submit form normally
+          isSubmitting = true;
+          form.submit();
+          return;
+        }
+        
+        // API endpoint configuration
+        const apiKey = '45FVf37q5mfOtP8XGODbDyqgcwo9XxfSib58SVHevl';
+        const templateId = 'tpl401849';
+        
+        // Build cart add URL with return_to parameter
+        // This URL will be used as returnurl after editor returns
+        // Format: /cart/add?id=VARIANT_ID&quantity=QUANTITY&properties[projectid]=PROJECT_ID&return_to=/cart
+        // We'll add projectid after API call, for now use placeholder
+        const shopDomain = '{{ shop.permanent_domain }}';
+        const cartAddBaseUrl = `https://${shopDomain}/cart/add`;
+        
+        console.log('[DEBUG] Building return URL structure...');
+        console.log('[DEBUG] Shop domain:', shopDomain);
+        console.log('[DEBUG] Cart add base URL:', cartAddBaseUrl);
+        
+        // Build API URL with placeholder returnurl
+        // We'll update returnurl after getting project ID
+        const apiUrl = `https://editor-staging.peleman.com/editor/api/createprojectAPI.php/?a=${encodeURIComponent(apiKey)}&templateid=${encodeURIComponent(templateId)}&returnurl=${encodeURIComponent(cartAddBaseUrl)}`;
+        
+        console.log('[DEBUG] Calling API:', apiUrl);
+        
+        // Make API call
+        fetch(apiUrl)
+          .then(response => {
+            console.log('[DEBUG] API response status:', response.status);
+            console.log('[DEBUG] API response headers:', response.headers);
+            
+            // Check if response is text or JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              return response.json();
+            } else {
+              return response.text();
+            }
+          })
+          .then(data => {
+            console.log('[DEBUG] API response data:', data);
+            
+            // Extract project ID from API response
+            let projectId = null;
+            
+            if (typeof data === 'string') {
+              // API returns project ID as string directly (e.g., "2511182395a-cd53")
+              projectId = data.trim();
+            } else if (typeof data === 'object' && data !== null) {
+              // Try to find project ID in object
+              projectId = data.projectId || data.projectid || data.id || data.project_id || null;
+              if (!projectId) {
+                // If not found, try to extract from JSON string
+                const jsonString = JSON.stringify(data);
+                projectId = jsonString;
+              }
+            } else {
+              projectId = String(data).trim();
+            }
+            
+            console.log('[DEBUG] Extracted project ID:', projectId);
+            
+            if (!projectId) {
+              console.error('[DEBUG] Could not extract project ID from API response');
+              alert('API Response Error: Could not extract project ID\n\nResponse: ' + JSON.stringify(data));
+              // Still submit the form
+              isSubmitting = true;
+              const formDataForSubmit = new FormData(form);
+              fetch(form.action, {
+                method: form.method || 'POST',
+                body: formDataForSubmit
+              }).then(() => window.location.reload()).catch(() => form.submit());
+              return;
+            }
+            
+            // Build cart add URL with project ID as property
+            // Format: /cart/add?id=VARIANT_ID&quantity=QUANTITY&properties[projectid]=PROJECT_ID&return_to=/cart
+            const cartAddParams = new URLSearchParams({
+              'id': variantId,
+              'quantity': quantity,
+              'properties[projectid]': projectId,
+              'return_to': '/cart'
+            });
+            
+            const cartAddUrl = `${cartAddBaseUrl}?${cartAddParams.toString()}`;
+            console.log('[DEBUG] Cart add URL with project ID:', cartAddUrl);
+            
+            // Build editor URL with cart add URL as returnurl
+            const editorApiKey = '45FVf37q5mfOtP8XGODbDyqgcwo9XxfSib58SVHevl';
+            const editorLang = 'en';
+            const editorSkipped = 'true';
+            
+            const editorUrl = `https://editor-staging.peleman.com/?projectid=${encodeURIComponent(projectId)}&lang=${encodeURIComponent(editorLang)}&a=${encodeURIComponent(editorApiKey)}&skipped=${encodeURIComponent(editorSkipped)}&returnurl=${encodeURIComponent(cartAddUrl)}`;
+            
+            console.log('[DEBUG] Editor URL with returnurl:', editorUrl);
+            
+            // Show alert with project ID before redirecting
+            const alertMessage = `Project Created!\n\nProject ID: ${projectId}\n\nRedirecting to editor...`;
+            alert(alertMessage);
+            console.log('[DEBUG] Alert closed, redirecting to editor');
+            
+            // Redirect to editor
+            // Check if we're in Theme Editor (iframe) or normal page
+            try {
+              // Try to access parent window to check if we're in an iframe
+              if (window.self !== window.top) {
+                // We're in an iframe (Theme Editor)
+                console.log('[DEBUG] Detected Theme Editor iframe, using window.top.location.href');
+                window.top.location.href = editorUrl;
+              } else {
+                // Normal page
+                console.log('[DEBUG] Normal page, using window.location.href');
+                window.location.href = editorUrl;
+              }
+            } catch (e) {
+              // Cross-origin iframe (can't access parent), try different approach
+              console.log('[DEBUG] Cross-origin iframe detected, trying window.open');
+              // Open in new window/tab
+              const newWindow = window.open(editorUrl, '_blank');
+              if (!newWindow) {
+                // Popup blocked, fallback to same window
+                console.log('[DEBUG] Popup blocked, using window.location.href');
+                window.location.href = editorUrl;
+              }
+            }
+          })
+          .catch(error => {
+            console.error('[DEBUG] API call error:', error);
+            
+            // Show error in alert
+            const errorMessage = 'API Call Failed:\n\n' + error.message;
+            alert(errorMessage);
+            
+            // Still submit the form even if API call fails
+            console.log('[DEBUG] Submitting form despite API error');
+            isSubmitting = true;
+            
+            const formData = new FormData(form);
+            const formAction = form.action;
+            const formMethod = form.method || 'POST';
+            
+            fetch(formAction, {
+              method: formMethod,
+              body: formData
+            }).then(() => {
+              console.log('[DEBUG] Form submitted successfully');
+              window.location.reload();
+            }).catch(submitError => {
+              console.error('[DEBUG] Form submission error:', submitError);
+              isSubmitting = true;
+              form.submit();
+            });
+          });
+        
+        console.log('[DEBUG] Add to cart clicked! API call initiated');
+      }
+    };
+    
+    // Add event listener at capture phase (true = capture phase)
+    // This ensures we catch the event before bubbling phase
+    document.addEventListener('submit', handleDocumentSubmit, true);
+    console.log('[DEBUG] Document-level submit listener attached (capture phase)');
+    
+    // Also try to catch button clicks as backup
+    const handleDocumentClick = function(event) {
+      const target = event.target;
+      
+      // Check if clicked element is an add to cart button
+      if (target && (
+        (target.tagName === 'BUTTON' && (target.name === 'add' || target.type === 'submit')) ||
+        target.closest('form[action*="/cart/add"]')
+      )) {
+        const form = target.closest('form[action*="/cart/add"]');
+        if (form) {
+          console.log('[DEBUG] Add to cart button clicked!');
+          console.log('[DEBUG] Button:', target);
+          console.log('[DEBUG] Form:', form);
+          
+          // Don't prevent here, let the submit handler catch it
+          // But log for debugging
+        }
+      }
+    };
+    
+    document.addEventListener('click', handleDocumentClick, true);
+    console.log('[DEBUG] Document-level click listener attached (capture phase)');
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Editor Content",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "info": "Your app's backend URL (e.g., https://your-app.ngrok.io or your production URL)"
+    }
+  ]
+}
+{% endschema %}
+
