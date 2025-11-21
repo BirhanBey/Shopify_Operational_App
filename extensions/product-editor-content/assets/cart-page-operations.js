@@ -144,13 +144,71 @@
     ".product-image img",
     "img[src*='products']",
     "img[data-cart-item-image]",
+    // Additional common selectors
+    ".cart-item img",
+    ".cart__item img",
+    "[data-cart-item] img",
+    ".line-item img",
+    ".cart-line-item img",
+    ".cart-item__media img",
+    ".cart-item__figure img",
+    "picture img",
+    "img[alt*='product']",
+    "img[alt*='Product']",
   ];
 
   function findThumbnailElement(cartItem) {
+    // Try specific selectors first
     for (const selector of thumbnailSelectors) {
       const img = cartItem.querySelector(selector);
-      if (img) return img;
+      if (img) {
+        console.debug(`${LOG_PREFIX} Found thumbnail with selector: ${selector}`, {
+          projectId: getProjectIdFromCartItem(cartItem),
+        });
+        return img;
+      }
     }
+
+    // Fallback: find any img element within the cart item
+    // but exclude icons, logos, and very small images
+    const allImages = cartItem.querySelectorAll("img");
+    for (const img of allImages) {
+      // Skip very small images (likely icons)
+      const width = img.naturalWidth || img.width || 0;
+      const height = img.naturalHeight || img.height || 0;
+      if (width < 20 || height < 20) continue;
+
+      // Skip images that are likely icons/logos
+      const src = img.src || "";
+      const alt = (img.alt || "").toLowerCase();
+      if (
+        src.includes("icon") ||
+        src.includes("logo") ||
+        alt.includes("icon") ||
+        alt.includes("logo")
+      ) {
+        continue;
+      }
+
+      console.debug(
+        `${LOG_PREFIX} Found thumbnail using fallback search`,
+        {
+          projectId: getProjectIdFromCartItem(cartItem),
+          src: src.substring(0, 100),
+        },
+      );
+      return img;
+    }
+
+    // Last resort: log the cart item structure for debugging
+    console.warn(
+      `${LOG_PREFIX} No thumbnail found, cart item structure:`,
+      {
+        projectId: getProjectIdFromCartItem(cartItem),
+        className: cartItem.className,
+        innerHTML: cartItem.innerHTML.substring(0, 500),
+      },
+    );
     return null;
   }
 
