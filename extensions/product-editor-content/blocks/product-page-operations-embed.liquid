@@ -4,12 +4,34 @@
 {%- endcomment -%}
 
 <script>
+  // Build variant metafields map from liquid
+  const variantMetafieldsMap = {};
+  {% if product.variants %}
+    {% for variant in product.variants %}
+      {% assign metafield = variant.metafields.custom.use_project_reference %}
+      {% if metafield %}
+        {% assign metafieldValue = metafield.value %}
+        {% if metafieldValue == "true" or metafieldValue == true %}
+          variantMetafieldsMap['{{ variant.id }}'] = { useProjectReference: true };
+          variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { useProjectReference: true };
+        {% else %}
+          variantMetafieldsMap['{{ variant.id }}'] = { useProjectReference: false };
+          variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { useProjectReference: false };
+        {% endif %}
+      {% else %}
+        variantMetafieldsMap['{{ variant.id }}'] = { useProjectReference: false };
+        variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { useProjectReference: false };
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
   window.__EDITOR_PRODUCT_CONFIG__ = Object.assign(
     {},
     window.__EDITOR_PRODUCT_CONFIG__,
     {
       appUrl: '{{ block.settings.app_url | escape }}',
       shop: '{{ shop.permanent_domain }}',
+      variantMetafields: variantMetafieldsMap,
     },
   );
   window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;

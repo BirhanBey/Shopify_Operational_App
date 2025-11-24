@@ -1,0 +1,12 @@
+{
+    "name": "variant-project-reference",
+    "version": "1.0.0",
+    "type": "module",
+    "dependencies": {
+        "@shopify/ui-extensions-react": "^2024.10.0",
+        "react": "^18.0.0"
+    },
+    "devDependencies": {
+        "@shopify/cli": "latest"
+    }
+}

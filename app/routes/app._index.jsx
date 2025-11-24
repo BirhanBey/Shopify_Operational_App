@@ -24,7 +24,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -53,6 +53,85 @@ export const action = async ({ request }) => {
     return { success: true, message: "Editor settings saved successfully" };
   }
 
+  // Handle metafield definition creation
+  if (intent === "create-metafield-definition") {
+    const METAFIELD_DEFINITION_MUTATION = `
+      mutation CreateMetafieldDefinition($definition: MetafieldDefinitionInput!) {
+        metafieldDefinitionCreate(definition: $definition) {
+          createdDefinition {
+            id
+            name
+            key
+            namespace
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await admin.graphql(METAFIELD_DEFINITION_MUTATION, {
+        variables: {
+          definition: {
+            name: "Use Project Reference",
+            namespace: "custom",
+            key: "use_project_reference",
+            type: "boolean",
+            ownerType: "PRODUCTVARIANT",
+            description: "Enable project reference input for this variant",
+          },
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.data?.metafieldDefinitionCreate?.userErrors?.length > 0) {
+        const errors = data.data.metafieldDefinitionCreate.userErrors;
+
+        // If definition already exists, that's okay
+        const alreadyExists = errors.some(
+          (error) => error.message?.includes("already exists") ||
+            error.message?.includes("duplicate") ||
+            error.message?.toLowerCase().includes("unique")
+        );
+
+        if (alreadyExists) {
+          return {
+            success: true,
+            message: "Metafield definition already exists"
+          };
+        }
+
+        return {
+          success: false,
+          message: errors.map((e) => e.message).join(", ")
+        };
+      }
+
+      if (data.data?.metafieldDefinitionCreate?.createdDefinition) {
+        return {
+          success: true,
+          message: "Metafield definition created successfully",
+          definitionId: data.data.metafieldDefinitionCreate.createdDefinition.id
+        };
+      }
+
+      return {
+        success: false,
+        message: "Unexpected response from Shopify API"
+      };
+    } catch (error) {
+      console.error("Error creating metafield definition:", error);
+      return {
+        success: false,
+        message: `Error: ${error.message}`
+      };
+    }
+  }
+
   return null;
 };
 
@@ -79,8 +158,14 @@ export default function Index() {
     if (fetcher.data?.product?.id) {
       shopify.toast.show("Product created");
     }
-    if (fetcher.data?.success) {
-      shopify.toast.show(fetcher.data.message || "Settings saved");
+
+    if (fetcher.data?.success !== undefined) {
+      const message = fetcher.data.message || "Settings saved";
+      shopify.toast.show(message);
+    }
+
+    if (fetcher.data?.success === false) {
+      console.error("[UI] Action failed:", fetcher.data.message);
     }
   }, [fetcher.data, shopify]);
 
@@ -131,6 +216,29 @@ export default function Index() {
             </s-button>
           </s-stack>
         </Form>
+      </s-section>
+
+      <s-section heading="Metafield Setup">
+        <s-paragraph>
+          Create the variant metafield definition for &quot;Use Project Reference&quot; feature.
+          This needs to be done once per shop.
+        </s-paragraph>
+
+        <fetcher.Form
+          method="post"
+          style={{ marginTop: "16px" }}
+        >
+          <input type="hidden" name="intent" value="create-metafield-definition" />
+          <s-button
+            type="submit"
+            variant="secondary"
+            {...(isLoading && fetcher.formData?.get("intent") === "create-metafield-definition"
+              ? { loading: true }
+              : {})}
+          >
+            Create Variant Metafield Definition
+          </s-button>
+        </fetcher.Form>
       </s-section>
 
     </s-page>

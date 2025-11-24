@@ -1,0 +1,16 @@
+name = "variant-project-reference"
+
+uid = "2bf57a8a-a1aa-b21b-8765-783c9b791658fef12c13"
+
+type = "ui_extension"
+handle = "variant-project-reference"
+api_version = "2025-01"
+
+[build]
+command = ""
+watch = []
+
+[[targeting]]
+target = "admin.product-details.block.render"
+module = "./src/Index.jsx"
+
