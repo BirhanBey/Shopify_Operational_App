@@ -107,7 +107,7 @@ export const loader = async ({ request }) => {
             }
         `;
 
-        console.log("[API] Querying product with handle:", productHandle);
+        // console.log("[API] Querying product with handle:", productHandle);
         const response = await admin.graphql(PRODUCT_QUERY, {
             variables: { handle: productHandle },
         });
