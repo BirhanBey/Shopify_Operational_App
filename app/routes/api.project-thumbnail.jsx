@@ -51,7 +51,7 @@ export const loader = async ({ request }) => {
         const editorDomain = settings.editorDomain.replace(/\/$/, "");
         const thumbnailApiUrl = `${editorDomain}/editor/api/getprojectthumbnailAPI.php?projectid=${encodeURIComponent(projectId)}&customerapikey=${encodeURIComponent(settings.editorApiKey)}`;
 
-        console.log("[API] Fetching thumbnail from:", thumbnailApiUrl);
+        // console.log("[API] Fetching thumbnail from:", thumbnailApiUrl);
 
         const apiResponse = await fetch(thumbnailApiUrl);
 
