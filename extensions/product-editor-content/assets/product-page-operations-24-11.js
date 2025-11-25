@@ -8,7 +8,8 @@
     config.shop ||
     (window.Shopify && (window.Shopify.shop || window.Shopify?.routes?.root));
 
-  // Removed: ADD_TO_CART_API_KEY and TEMPLATE_ID - now using API endpoint
+  const ADD_TO_CART_API_KEY = "45FVf37q5mfOtP8XGODbDyqgcwo9XxfSib58SVHevl";
+  const TEMPLATE_ID = "tpl401849";
 
   if (!appUrl) {
     console.warn(
@@ -34,7 +35,6 @@
   window.__EDITOR_PRODUCT_LISTENER_READY = true;
 
   let editorSettings = null;
-  let variantInfoMap = {};
 
   function loadEditorSettings() {
     const url = `${appUrl.replace(/\/$/, "")}/api/editor-settings?shop=${encodeURIComponent(shopDomain || "")}`;
@@ -58,58 +58,43 @@
       });
   }
 
-  function callCreateProjectAPI(cartAddBaseUrl, { variantSku = null } = {}) {
-    const normalizedCartUrl = cartAddBaseUrl.split("?")[0];
-    const returnUrl = normalizedCartUrl;
-    const apiUrl = `${appUrl.replace(/\/$/, "")}/api/create-project?shop=${encodeURIComponent(
-      shopDomain || "",
-    )}`;
+  function callCreateProjectAPI(cartAddBaseUrl) {
+    const apiUrl = `https://editor-staging.peleman.com/editor/api/createprojectAPI.php/?a=${encodeURIComponent(ADD_TO_CART_API_KEY)}&templateid=${encodeURIComponent(TEMPLATE_ID)}&returnurl=${encodeURIComponent(cartAddBaseUrl)}`;
 
-    const payload = {
-      overrides: {
-        returnUrl,
-      },
-    };
+    console.debug(`${LOG_PREFIX} Calling create project API`, apiUrl);
 
-    if (variantSku) {
-      payload.overrides.sku = variantSku;
-    }
-
-    console.log(`${LOG_PREFIX} [CREATE PROJECT] Calling create project API:`, apiUrl);
-    console.log(`${LOG_PREFIX} [CREATE PROJECT] Payload:`, payload);
-
-    return fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    })
+    return fetch(apiUrl)
       .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return response.json();
         }
-        return response.json();
+        return response.text();
       })
       .then((data) => {
-        console.log(`${LOG_PREFIX} [CREATE PROJECT] API response:`, data);
-
-        if (!data.success) {
-          throw new Error(data.error || data.details || "Failed to create project");
+        if (typeof data === "string") {
+          return data.trim();
         }
-
-        const projectId = data.projectId;
+        if (typeof data === "object" && data !== null) {
+          return (
+            data.projectId ||
+            data.projectid ||
+            data.id ||
+            data.project_id ||
+            ""
+          );
+        }
+        return String(data || "").trim();
+      })
+      .then((projectId) => {
         if (!projectId) {
-          throw new Error("No project ID in API response");
+          throw new Error("Unable to extract project ID from API response");
         }
-
-        console.log(`${LOG_PREFIX} [CREATE PROJECT] Project created successfully:`, projectId);
-
-        return { projectId };
+        console.debug(`${LOG_PREFIX} Project created`, projectId);
+        return projectId;
       });
   }
 
-  // Build cart add URL with project properties
   function buildCartAddUrl(variantId, quantity, projectId, projectReference = null) {
     const baseUrl = `https://${shopDomain}/cart/add`;
     const params = new URLSearchParams({
@@ -127,7 +112,7 @@
     return `${baseUrl}?${params.toString()}`;
   }
 
-  function buildEditorUrl(projectId, cartAddUrl, sku = null) {
+  function buildEditorUrl(projectId, cartAddUrl) {
     if (
       !editorSettings ||
       !editorSettings.editorApiKey ||
@@ -141,22 +126,7 @@
     const editorLang =
       (navigator.language && navigator.language.split("-")[0]) || "en";
 
-    const params = new URLSearchParams({
-      projectid: projectId,
-      skip: "true",
-      editorid: "PIE",
-      lang: editorLang,
-      a: apiKey,
-    });
-
-    if (sku) {
-      params.append("variantSku", sku);
-      params.append("sku", sku);
-    }
-
-    params.append("returnurl", cartAddUrl);
-
-    return `${domain}/?${params.toString()}`;
+    return `${domain}/?projectid=${encodeURIComponent(projectId)}&lang=${encodeURIComponent(editorLang)}&a=${encodeURIComponent(apiKey)}&skipped=true&returnurl=${encodeURIComponent(cartAddUrl)}`;
   }
 
   function redirectToEditor(editorUrl) {
@@ -202,22 +172,6 @@
     
     if (productData && productData.variants) {
       console.log(`${LOG_PREFIX} [DEBUG] Found variants in analytics data:`, productData.variants);
-
-      try {
-        variantInfoMap = {};
-        productData.variants.forEach((variant) => {
-          const variantId = String(variant.id);
-          const info = {
-            sku: variant.sku || null,
-            title: variant.name || variant.title || null,
-          };
-          variantInfoMap[variantId] = info;
-          variantInfoMap[`gid://shopify/ProductVariant/${variantId}`] = info;
-        });
-        console.log(`${LOG_PREFIX} [DEBUG] Variant info map populated from analytics`, variantInfoMap);
-      } catch (error) {
-        console.warn(`${LOG_PREFIX} [DEBUG] Failed to populate variant info map from analytics`, error);
-      }
       
       // Build variant metafields map from analytics data
       const variants = Array.isArray(productData.variants) 
@@ -643,10 +597,9 @@
         form.querySelector("[name='quantity']")?.value ||
         "1";
 
-      // Get project reference if input exists (will be used later for cart properties)
+      // Get project reference if input exists
       const projectReferenceInput = document.getElementById("project-reference-input");
       const projectReference = projectReferenceInput?.value?.trim() || null;
-      console.log(`${LOG_PREFIX} [ADD TO CART] Project reference:`, projectReference);
 
       if (!variantId) {
         alert("Error: Could not find product variant ID");
@@ -657,39 +610,10 @@
 
       const cartAddBaseUrl = `https://${shopDomain}/cart/add`;
 
-      // Get SKU from analytics map or DOM if available
-      const mappedSku =
-        (variantInfoMap?.[variantId] && variantInfoMap[variantId].sku) ||
-        (variantInfoMap?.[`gid://shopify/ProductVariant/${variantId}`] &&
-          variantInfoMap[`gid://shopify/ProductVariant/${variantId}`].sku) ||
-        null;
-
-      const variantElement =
-        form.querySelector(`[data-variant-id="${variantId}"]`) ||
-        form.querySelector(`[value="${variantId}"]`);
-      const domSku =
-        variantElement?.dataset?.sku ||
-        variantElement?.getAttribute("data-sku") ||
-        null;
-
-      const sku = mappedSku || domSku || null;
-
-      console.log(`${LOG_PREFIX} [ADD TO CART] Creating project before redirecting to editor...`);
-      console.log(`${LOG_PREFIX} [ADD TO CART] Variant ID:`, variantId);
-      console.log(`${LOG_PREFIX} [ADD TO CART] Quantity:`, quantity);
-      console.log(`${LOG_PREFIX} [ADD TO CART] SKU:`, sku);
-
-      callCreateProjectAPI(cartAddBaseUrl, { variantSku: sku })
-        .then(({ projectId }) => {
-          console.log(`${LOG_PREFIX} [ADD TO CART] Project created:`, projectId);
-
+      callCreateProjectAPI(cartAddBaseUrl)
+        .then((projectId) => {
           const cartAddUrl = buildCartAddUrl(variantId, quantity, projectId, projectReference);
-          console.log(`${LOG_PREFIX} [ADD TO CART] Cart add URL:`, cartAddUrl);
-
-          const editorUrl = buildEditorUrl(projectId, cartAddUrl, sku);
-
-          console.log(`${LOG_PREFIX} [ADD TO CART] Editor URL:`, editorUrl);
-          console.log(`${LOG_PREFIX} [ADD TO CART] Redirecting to editor...`);
+          const editorUrl = buildEditorUrl(projectId, cartAddUrl);
 
           alert(
             `Project Created!\n\nProject ID: ${projectId}\n\nRedirecting to editor...`,
