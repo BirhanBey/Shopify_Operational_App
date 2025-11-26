@@ -72,64 +72,174 @@ export const action = async ({ request }) => {
       }
     `;
 
+    // Define all metafield definitions to create
+    const metafieldDefinitions = [
+      {
+        name: "Use Project Reference",
+        namespace: "custom",
+        key: "use_project_reference",
+        type: "boolean",
+        ownerType: "PRODUCTVARIANT",
+        description: "Enable project reference input for this variant",
+      },
+      {
+        name: "Template ID",
+        namespace: "custom",
+        key: "template_id",
+        type: "single_line_text_field",
+        ownerType: "PRODUCTVARIANT",
+        description: "Template ID for the editor",
+      },
+      {
+        name: "Design ID",
+        namespace: "custom",
+        key: "design_id",
+        type: "single_line_text_field",
+        ownerType: "PRODUCTVARIANT",
+        description: "Design ID for the editor",
+      },
+      {
+        name: "Material ID",
+        namespace: "custom",
+        key: "material_id",
+        type: "single_line_text_field",
+        ownerType: "PRODUCTVARIANT",
+        description: "Material ID for the editor",
+      },
+      {
+        name: "Personalisations",
+        namespace: "custom",
+        key: "personalisations",
+        type: "single_line_text_field",
+        ownerType: "PRODUCTVARIANT",
+        description: "Personalisations value (e.g., f2d)",
+      },
+      {
+        name: "F2D Article Code",
+        namespace: "custom",
+        key: "f2d_article_code",
+        type: "single_line_text_field",
+        ownerType: "PRODUCTVARIANT",
+        description: "F2D article code for this variant",
+      },
+      {
+        name: "Use Image Uploads",
+        namespace: "custom",
+        key: "use_image_uploads",
+        type: "boolean",
+        ownerType: "PRODUCTVARIANT",
+        description: "Enable image uploads in the editor",
+      },
+      {
+        name: "Use Project Thumbnail in Cart",
+        namespace: "custom",
+        key: "use_project_thumbnail_in_cart",
+        type: "boolean",
+        ownerType: "PRODUCTVARIANT",
+        description: "Show project thumbnail in cart",
+      },
+      {
+        name: "Sheets Max",
+        namespace: "custom",
+        key: "sheets_max",
+        type: "number_integer",
+        ownerType: "PRODUCTVARIANT",
+        description: "Maximum number of sheets (e.g., 15)",
+      },
+      {
+        name: "Included Pages",
+        namespace: "custom",
+        key: "included_pages",
+        type: "number_integer",
+        ownerType: "PRODUCTVARIANT",
+        description: "Number of included pages (e.g., 0)",
+      },
+      {
+        name: "Product Unit Code",
+        namespace: "custom",
+        key: "product_unit_code",
+        type: "single_line_text_field",
+        ownerType: "PRODUCTVARIANT",
+        description: "Product unit code (e.g., BOX)",
+      },
+    ];
+
     try {
-      const response = await admin.graphql(METAFIELD_DEFINITION_MUTATION, {
-        variables: {
-          definition: {
-            name: "Use Project Reference",
-            namespace: "custom",
-            key: "use_project_reference",
-            type: "boolean",
-            ownerType: "PRODUCTVARIANT",
-            description: "Enable project reference input for this variant",
-          },
-        },
-      });
+      const results = [];
+      const errors = [];
 
-      const data = await response.json();
+      // Create each metafield definition
+      for (const definition of metafieldDefinitions) {
+        try {
+          const response = await admin.graphql(METAFIELD_DEFINITION_MUTATION, {
+            variables: { definition },
+          });
 
-      if (data.data?.metafieldDefinitionCreate?.userErrors?.length > 0) {
-        const errors = data.data.metafieldDefinitionCreate.userErrors;
+          const data = await response.json();
 
-        // If definition already exists or key is in use, that's okay
-        const alreadyExists = errors.some(
-          (error) => error.message?.includes("already exists") ||
-            error.message?.includes("duplicate") ||
-            error.message?.toLowerCase().includes("unique") ||
-            error.message?.includes("Key is in use") ||
-            error.message?.toLowerCase().includes("key is in use")
-        );
+          if (data.data?.metafieldDefinitionCreate?.userErrors?.length > 0) {
+            const definitionErrors = data.data.metafieldDefinitionCreate.userErrors;
 
-        if (alreadyExists) {
-          return {
-            success: true,
-            message: "Metafield definition already exists"
-          };
+            // If definition already exists, that's okay
+            const alreadyExists = definitionErrors.some(
+              (error) =>
+                error.message?.includes("already exists") ||
+                error.message?.includes("duplicate") ||
+                error.message?.toLowerCase().includes("unique") ||
+                error.message?.includes("Key is in use") ||
+                error.message?.toLowerCase().includes("key is in use")
+            );
+
+            if (alreadyExists) {
+              results.push({
+                key: definition.key,
+                status: "exists",
+                message: `${definition.name} already exists`,
+              });
+            } else {
+              errors.push({
+                key: definition.key,
+                message: definitionErrors.map((e) => e.message).join(", "),
+              });
+            }
+          } else if (data.data?.metafieldDefinitionCreate?.createdDefinition) {
+            results.push({
+              key: definition.key,
+              status: "created",
+              message: `${definition.name} created successfully`,
+            });
+          }
+        } catch (error) {
+          errors.push({
+            key: definition.key,
+            message: error.message,
+          });
         }
+      }
 
+      // Return summary
+      const successCount = results.filter((r) => r.status === "created").length;
+      const existsCount = results.filter((r) => r.status === "exists").length;
+      const errorCount = errors.length;
+
+      if (errorCount > 0) {
         return {
           success: false,
-          message: errors.map((e) => e.message).join(", ")
-        };
-      }
-
-      if (data.data?.metafieldDefinitionCreate?.createdDefinition) {
-        return {
-          success: true,
-          message: "Metafield definition created successfully",
-          definitionId: data.data.metafieldDefinitionCreate.createdDefinition.id
+          message: `Created: ${successCount}, Already exists: ${existsCount}, Errors: ${errorCount}. Check console for details.`,
+          details: { results, errors },
         };
       }
 
       return {
-        success: false,
-        message: "Unexpected response from Shopify API"
+        success: true,
+        message: `Metafield definitions processed: ${successCount} created, ${existsCount} already existed`,
+        details: { results },
       };
     } catch (error) {
-      console.error("Error creating metafield definition:", error);
+      console.error("Error creating metafield definitions:", error);
       return {
         success: false,
-        message: `Error: ${error.message}`
+        message: `Error: ${error.message}`,
       };
     }
   }
@@ -222,8 +332,8 @@ export default function Index() {
 
       <s-section heading="Metafield Setup">
         <s-paragraph>
-          Create the variant metafield definition for &quot;Use Project Reference&quot; feature.
-          This needs to be done once per shop.
+          Create all variant metafield definitions for Editor Configuration features.
+          This needs to be done once per shop. Creates definitions for: Use Project Reference, Template ID, Design ID, Material ID, Personalisations, F2D Article Code, Use Image Uploads, Use Project Thumbnail in Cart, Sheets Max, Included Pages, and Product Unit Code.
         </s-paragraph>
 
         <fetcher.Form

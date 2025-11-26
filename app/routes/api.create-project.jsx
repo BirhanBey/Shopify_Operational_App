@@ -47,58 +47,23 @@ function generateRequestBody(editorSettings, overrideData = {}) {
         // Editor configuration
         templateId: pick("templateId", "tpl686566"),
         designId: pick("designId", ""),
-        backgroundId: pick("backgroundId", ""),
-        colorCode: pick("colorCode", ""),
-        formatId: pick("formatId", "10X15C3"),
-        materialId: pick("materialId", ""),
+        materialId: pick("materialId", "Wood"),
 
         // Project details
-        projectName: pick("projectName", ""),
+        projectName: pick("projectName", "Default Project Name"),
         returnUrl: overrideReturnUrl ?? defaultReturnUrl,
-        userId: pick("userId", 1745),
         userEmail: pick("userEmail", "birhan.yorukoglu@peleman.com"),
         language: pick("language", "en"),
 
-        // Organisation (optional)
-        organisationId: pick("organisationId", null),
-        organisationApiKey: pick("organisationApiKey", editorSettings.editorApiKey || ""),
-
-        // Editor instructions (from WordPress logs)
-        editorInstructions: pick("editorInstructions", [
-            "usedesigns",
-            "usebackgrounds",
-            "uselayers",
-            "useimageupload",
-            "useelements",
-            "usestockphotos",
-            "useshowsafezone",
-            "usetext",
-            "usesettings",
-            "useshowcropzone"
-        ]),
+        // Editor settings
         sheetsMax: pick("sheetsMax", 15),
-
-        // Pricing (from WordPress logs)
-        basePrice: pick("basePrice", 7.19),
-        pagePrice: pick("pagePrice", 0),
         includedPages: pick("includedPages", 0),
-
-        // Tax settings (from WordPress logs)
-        taxDisplayFrontend: pick("taxDisplayFrontend", "excl"),
-        taxDisplayBackend: pick("taxDisplayBackend", "excl"),
-        taxRate: pick("taxRate", 21),
-
-        // Currency (from WordPress logs)
-        currencySymbol: pick("currencySymbol", "&euro;"),
         locale: pick("locale", "en_GB"),
-        decimalPoint: pick("decimalPoint", "."),
 
-        // Product details (from WordPress logs)
-        amount: pick("amount", 1),
+        // Product details
         personalisations: pick("personalisations", "f2d"),
         f2dArticleCode: pick("f2dArticleCode", "25290A415AL"),
         productUnitCode: pick("productUnitCode", "BOX"),
-        sku: pick("sku", "WBPB25290A40169"),
     };
 
     console.log(`${LOG_PREFIX} [STEP 1] Hard-coded test data prepared:`, testData);
@@ -108,50 +73,19 @@ function generateRequestBody(editorSettings, overrideData = {}) {
         customerid: editorSettings.editorCustomerId || "",
         templateid: testData.templateId,
         designid: testData.designId,
-        backgroundid: testData.backgroundId,
-        colorcode: testData.colorCode,
-        formatid: testData.formatId,
+        materialid: testData.materialId,
         projectname: testData.projectName,
         returnurl: testData.returnUrl,
-        userid: testData.userId,
         useremail: testData.userEmail,
         lang: testData.language,
-        // organisationid will be removed if null/empty below
-        organisationid: testData.organisationId,
-        a: testData.organisationApiKey,
-        editorinstructions: testData.editorInstructions,
         sheetsmax: testData.sheetsMax,
-        pricing: {
-            base: {
-                price: testData.basePrice,
-            },
-            page: {
-                price: testData.pagePrice,
-            },
-        },
-        tax_status: {
-            tax_display_frontend: testData.taxDisplayFrontend,
-            tax_display_backend: testData.taxDisplayBackend,
-            tax_rate: testData.taxRate,
-        },
         includedpages: testData.includedPages,
-        currency: {
-            symbol: testData.currencySymbol,
-            locale: testData.locale,
-            decimal: testData.decimalPoint,
-        },
+        locale: testData.locale,
         personalisations: testData.personalisations,
-        amount: testData.amount,
-        materialid: testData.materialId,
         f2d_article_code: testData.f2dArticleCode,
         productUnitCode: testData.productUnitCode,
-        SKU: testData.sku,
         v: 2, // API version
     };
-
-    if (!testData.organisationId) {
-        delete requestBody.organisationid;
-    }
 
     console.log(`${LOG_PREFIX} [STEP 1] Overrides applied:`, overrideData);
     console.log(`${LOG_PREFIX} [STEP 1] Request body generated successfully`);
@@ -296,6 +230,12 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
         console.log(`${LOG_PREFIX} [MAIN] Starting request body generation`);
         const requestBody = generateRequestBody(settings, overrides);
         console.log(`${LOG_PREFIX} [MAIN] Request body generation completed`);
+
+        // Log complete request body as JSON for debugging
+        console.log(`${LOG_PREFIX} ========================================`);
+        console.log(`${LOG_PREFIX} [JSON] Complete request body to editor (JSON format):`);
+        console.log(JSON.stringify(requestBody, null, 2));
+        console.log(`${LOG_PREFIX} ========================================`);
 
         console.log(`${LOG_PREFIX} [MAIN] Building API URL`);
         const apiUrl = buildEditorApiUrl(settings.editorDomain);

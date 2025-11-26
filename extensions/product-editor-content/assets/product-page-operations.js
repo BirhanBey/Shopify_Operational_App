@@ -71,7 +71,7 @@
       });
   }
 
-  function callCreateProjectAPI(cartAddBaseUrl, { variantSku = null } = {}) {
+  function callCreateProjectAPI(cartAddBaseUrl, { variantSku = null, templateId = null, materialId = null, projectName = null } = {}) {
     const normalizedCartUrl = cartAddBaseUrl.split("?")[0];
     const returnUrl = normalizedCartUrl;
     const apiUrl = `${appUrl.replace(/\/$/, "")}/api/create-project?shop=${encodeURIComponent(
@@ -87,6 +87,24 @@
     if (variantSku) {
       payload.overrides.sku = variantSku;
     }
+
+    if (templateId) {
+      payload.overrides.templateId = templateId;
+    }
+
+    if (materialId) {
+      payload.overrides.materialId = materialId;
+    }
+
+    if (projectName) {
+      payload.overrides.projectName = projectName;
+    }
+
+    // Log complete payload as JSON for debugging
+    console.log(`${LOG_PREFIX} ========================================`);
+    console.log(`${LOG_PREFIX} [JSON] Complete payload to editor API (JSON format):`);
+    console.log(JSON.stringify(payload, null, 2));
+    console.log(`${LOG_PREFIX} ========================================`);
 
     console.log(`${LOG_PREFIX} [CREATE PROJECT] Calling create project API:`, apiUrl);
     console.log(`${LOG_PREFIX} [CREATE PROJECT] Payload:`, payload);
@@ -268,14 +286,20 @@
         if (variant.id) {
           const metafieldValue = variant.metafields?.custom?.use_project_reference?.value;
           const useProjectReference = metafieldValue === "true" || metafieldValue === true;
+          const templateId = variant.metafields?.custom?.template_id?.value || null;
+          const materialId = variant.metafields?.custom?.material_id?.value || null;
           
           variantMetafieldsMap[variant.id] = {
             useProjectReference: useProjectReference,
+            templateId: templateId,
+            materialId: materialId,
           };
           
-          console.log(`${LOG_PREFIX} [DEBUG] Variant ${variant.id}: useProjectReference = ${useProjectReference}`, {
+          console.log(`${LOG_PREFIX} [DEBUG] Variant ${variant.id}: useProjectReference = ${useProjectReference}, templateId = ${templateId}, materialId = ${materialId}`, {
             variantId: variant.id,
             metafieldValue: metafieldValue,
+            templateId: templateId,
+            materialId: materialId,
             metafields: variant.metafields,
           });
         }
@@ -712,12 +736,27 @@
 
       const sku = mappedSku || domSku || null;
 
+      // Get templateId and materialId from variant metafields
+      const variantMetafields = variantMetafieldsMap[variantId] || variantMetafieldsMap[`gid://shopify/ProductVariant/${variantId}`] || {};
+      const templateId = variantMetafields.templateId || null;
+      const materialId = variantMetafields.materialId || null;
+
       console.log(`${LOG_PREFIX} [ADD TO CART] Creating project before redirecting to editor...`);
       console.log(`${LOG_PREFIX} [ADD TO CART] Variant ID:`, variantId);
       console.log(`${LOG_PREFIX} [ADD TO CART] Quantity:`, quantity);
       console.log(`${LOG_PREFIX} [ADD TO CART] SKU:`, sku);
+      
+      console.log(`${LOG_PREFIX} [ADD TO CART] variantMetafieldsMap:`, variantMetafieldsMap);
+      console.log(`${LOG_PREFIX} [ADD TO CART] variantMetafields:`, variantMetafields);
+      console.log(`${LOG_PREFIX} [ADD TO CART] Template ID:`, templateId);
+      console.log(`${LOG_PREFIX} [ADD TO CART] Material ID:`, materialId);
 
-      callCreateProjectAPI(cartAddBaseUrl, { variantSku: sku })
+      callCreateProjectAPI(cartAddBaseUrl, { 
+        variantSku: sku, 
+        templateId: templateId,
+        materialId: materialId,
+        projectName: projectReference 
+      })
         .then(({ projectId }) => {
           console.log(`${LOG_PREFIX} [ADD TO CART] Project created:`, projectId);
 
@@ -729,8 +768,9 @@
           console.log(`${LOG_PREFIX} [ADD TO CART] Editor URL:`, editorUrl);
           console.log(`${LOG_PREFIX} [ADD TO CART] Redirecting to editor...`);
 
+          // Show an alert with projectId, templateId, and SKU for debug purposes before redirecting
           alert(
-            `Project Created!\n\nProject ID: ${projectId}\n\nRedirecting to editor...`,
+            `Project Created!\n\nProject ID: ${projectId}\n\nSKU: ${sku || "N/A"}\n\nRedirecting to editor...`,
           );
           redirectToEditor(editorUrl);
         })
