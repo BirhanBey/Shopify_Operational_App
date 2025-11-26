@@ -1,12 +1,25 @@
 "use strict";
 
+/**
+ * @typedef {Object} ShopifyWindow
+ * @property {Object} [Shopify]
+ * @property {string} [Shopify.shop]
+ * @property {Object} [Shopify.routes]
+ * @property {string} [Shopify.routes.root]
+ * @property {Object} [Shopify.analytics]
+ * @property {Object} [Shopify.analytics.product]
+ * @property {Function} [Shopify.onVariantChange]
+ */
+
 (function () {
   const LOG_PREFIX = "[Product Page Operations]";
   const config = window.__EDITOR_PRODUCT_CONFIG__ || {};
   const appUrl = (config.appUrl || "").trim();
+  /** @type {ShopifyWindow} */
+  const shopifyWindow = /** @type {any} */ (window);
   const shopDomain =
     config.shop ||
-    (window.Shopify && (window.Shopify.shop || window.Shopify?.routes?.root));
+    (shopifyWindow.Shopify && (shopifyWindow.Shopify.shop || shopifyWindow.Shopify?.routes?.root));
 
   // Removed: ADD_TO_CART_API_KEY and TEMPLATE_ID - now using API endpoint
 
@@ -184,6 +197,28 @@
     if (configMetafields && Object.keys(configMetafields).length > 0) {
       variantMetafieldsMap = configMetafields;
       console.log(`${LOG_PREFIX} [DEBUG] Loaded variant metafields from liquid template:`, variantMetafieldsMap);
+    
+      // Also populate variant info map from ShopifyAnalytics if available
+      /** @type {any} */
+      const shopifyAnalytics = window.ShopifyAnalytics;
+      const productData = shopifyAnalytics?.meta?.product;
+      if (productData && productData.variants) {
+        try {
+          variantInfoMap = {};
+          productData.variants.forEach((variant) => {
+            const variantId = String(variant.id);
+            const info = {
+              sku: variant.sku || null,
+              title: variant.name || variant.title || null,
+            };
+            variantInfoMap[variantId] = info;
+            variantInfoMap[`gid://shopify/ProductVariant/${variantId}`] = info;
+          });
+          console.log(`${LOG_PREFIX} [DEBUG] Variant info map populated from ShopifyAnalytics:`, variantInfoMap);
+        } catch (error) {
+          console.warn(`${LOG_PREFIX} [DEBUG] Failed to populate variant info map from ShopifyAnalytics:`, error);
+        }
+      }
       return Promise.resolve();
     }
     
@@ -196,9 +231,12 @@
       return Promise.resolve();
     }
 
-    // Try to get product data from Shopify analytics first
-    const productData = window.Shopify?.analytics?.product;
-    console.log(`${LOG_PREFIX} [DEBUG] Shopify analytics product data:`, productData);
+    // Try to get product data from ShopifyAnalytics first
+    /** @type {any} */
+    const shopifyAnalytics = window.ShopifyAnalytics;
+    const productData = shopifyAnalytics?.meta?.product;
+    console.log(`${LOG_PREFIX} [DEBUG] ShopifyAnalytics product data:`, productData);
+    console.log(`${LOG_PREFIX} [DEBUG] Full ShopifyAnalytics object:`, shopifyAnalytics);
     
     if (productData && productData.variants) {
       console.log(`${LOG_PREFIX} [DEBUG] Found variants in analytics data:`, productData.variants);
@@ -748,7 +786,7 @@
   console.log(`${LOG_PREFIX} [DEBUG] appUrl:`, appUrl);
   console.log(`${LOG_PREFIX} [DEBUG] shopDomain:`, shopDomain);
   console.log(`${LOG_PREFIX} [DEBUG] isProductPage:`, isProductPage);
-  
+
   loadEditorSettings()
     .then(() => {
       console.log(`${LOG_PREFIX} [DEBUG] Editor settings loaded, loading variant metafields`);

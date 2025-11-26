@@ -91,11 +91,13 @@ export const action = async ({ request }) => {
       if (data.data?.metafieldDefinitionCreate?.userErrors?.length > 0) {
         const errors = data.data.metafieldDefinitionCreate.userErrors;
 
-        // If definition already exists, that's okay
+        // If definition already exists or key is in use, that's okay
         const alreadyExists = errors.some(
           (error) => error.message?.includes("already exists") ||
             error.message?.includes("duplicate") ||
-            error.message?.toLowerCase().includes("unique")
+            error.message?.toLowerCase().includes("unique") ||
+            error.message?.includes("Key is in use") ||
+            error.message?.toLowerCase().includes("key is in use")
         );
 
         if (alreadyExists) {

@@ -1,0 +1,17 @@
+name = "Peleman Product/Editor Settings"
+
+uid = "5f6b1fbd-3e6f-4bca-9dde-5c3320e5d019"
+
+type = "ui_extension"
+handle = "peleman-product-editor-settings"
+api_version = "2025-01"
+
+[build]
+command = ""
+watch = []
+
+[[targeting]]
+target = "admin.product-details.block.render"
+module = "./src/Index.jsx"
+
+

@@ -10,8 +10,8 @@
     {% for variant in product.variants %}
       {% assign metafield = variant.metafields.custom.use_project_reference %}
       {% if metafield %}
-        {% assign metafieldValue = metafield.value %}
-        {% if metafieldValue == "true" or metafieldValue == true %}
+        {% assign metafield_value = metafield.value %}
+        {% if metafield_value == "true" or metafield_value == true %}
           variantMetafieldsMap['{{ variant.id }}'] = { useProjectReference: true };
           variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { useProjectReference: true };
         {% else %}
