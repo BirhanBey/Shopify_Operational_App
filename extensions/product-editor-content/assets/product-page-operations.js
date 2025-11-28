@@ -35,12 +35,10 @@
     !!document.querySelector("form[action*='/cart/add']");
 
   if (!isProductPage) {
-    console.debug(`${LOG_PREFIX} Not a product page. Skipping.`);
     return;
   }
 
   if (window.__EDITOR_PRODUCT_LISTENER_READY) {
-    console.debug(`${LOG_PREFIX} Listener already initialized. Skipping.`);
     return;
   }
 
@@ -51,8 +49,6 @@
 
   function loadEditorSettings() {
     const url = `${appUrl.replace(/\/$/, "")}/api/editor-settings?shop=${encodeURIComponent(shopDomain || "")}`;
-
-    console.debug(`${LOG_PREFIX} Loading editor settings from`, url);
 
     return fetch(url)
       .then((response) => {
@@ -66,7 +62,6 @@
         if (!editorSettings) {
           throw new Error("Missing editor settings");
         }
-        console.info(`${LOG_PREFIX} Editor settings loaded`, editorSettings);
         return editorSettings;
       });
   }
@@ -100,15 +95,6 @@
       payload.overrides.projectName = projectName;
     }
 
-    // Log complete payload as JSON for debugging
-    console.log(`${LOG_PREFIX} ========================================`);
-    console.log(`${LOG_PREFIX} [JSON] Complete payload to editor API (JSON format):`);
-    console.log(JSON.stringify(payload, null, 2));
-    console.log(`${LOG_PREFIX} ========================================`);
-
-    console.log(`${LOG_PREFIX} [CREATE PROJECT] Calling create project API:`, apiUrl);
-    console.log(`${LOG_PREFIX} [CREATE PROJECT] Payload:`, payload);
-
     return fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -123,8 +109,6 @@
         return response.json();
       })
       .then((data) => {
-        console.log(`${LOG_PREFIX} [CREATE PROJECT] API response:`, data);
-
         if (!data.success) {
           throw new Error(data.error || data.details || "Failed to create project");
         }
@@ -133,8 +117,6 @@
         if (!projectId) {
           throw new Error("No project ID in API response");
         }
-
-        console.log(`${LOG_PREFIX} [CREATE PROJECT] Project created successfully:`, projectId);
 
         return { projectId };
       });
@@ -174,7 +156,7 @@
 
     const params = new URLSearchParams({
       projectid: projectId,
-      skip: "true",
+      skipped: "",
       editorid: "PIE",
       lang: editorLang,
       a: apiKey,
@@ -208,14 +190,11 @@
 
   // Load variant metafields for the current product
   function loadVariantMetafields() {
-    console.log(`${LOG_PREFIX} [DEBUG] loadVariantMetafields called`);
-    
     // First, try to get from liquid template config
     const configMetafields = config.variantMetafields;
     if (configMetafields && Object.keys(configMetafields).length > 0) {
       variantMetafieldsMap = configMetafields;
-      console.log(`${LOG_PREFIX} [DEBUG] Loaded variant metafields from liquid template:`, variantMetafieldsMap);
-    
+
       // Also populate variant info map from ShopifyAnalytics if available
       /** @type {any} */
       const shopifyAnalytics = window.ShopifyAnalytics;
@@ -232,7 +211,6 @@
             variantInfoMap[variantId] = info;
             variantInfoMap[`gid://shopify/ProductVariant/${variantId}`] = info;
           });
-          console.log(`${LOG_PREFIX} [DEBUG] Variant info map populated from ShopifyAnalytics:`, variantInfoMap);
         } catch (error) {
           console.warn(`${LOG_PREFIX} [DEBUG] Failed to populate variant info map from ShopifyAnalytics:`, error);
         }
@@ -242,7 +220,6 @@
     
     // Get product handle from URL
     const productHandle = window.location.pathname.match(/\/products\/([^/]+)/)?.[1];
-    console.log(`${LOG_PREFIX} [DEBUG] Product handle:`, productHandle);
     
     if (!productHandle) {
       console.warn(`${LOG_PREFIX} [DEBUG] Could not extract product handle from URL`);
@@ -253,12 +230,8 @@
     /** @type {any} */
     const shopifyAnalytics = window.ShopifyAnalytics;
     const productData = shopifyAnalytics?.meta?.product;
-    console.log(`${LOG_PREFIX} [DEBUG] ShopifyAnalytics product data:`, productData);
-    console.log(`${LOG_PREFIX} [DEBUG] Full ShopifyAnalytics object:`, shopifyAnalytics);
     
     if (productData && productData.variants) {
-      console.log(`${LOG_PREFIX} [DEBUG] Found variants in analytics data:`, productData.variants);
-
       try {
         variantInfoMap = {};
         productData.variants.forEach((variant) => {
@@ -270,7 +243,6 @@
           variantInfoMap[variantId] = info;
           variantInfoMap[`gid://shopify/ProductVariant/${variantId}`] = info;
         });
-        console.log(`${LOG_PREFIX} [DEBUG] Variant info map populated from analytics`, variantInfoMap);
       } catch (error) {
         console.warn(`${LOG_PREFIX} [DEBUG] Failed to populate variant info map from analytics`, error);
       }
@@ -279,8 +251,6 @@
       const variants = Array.isArray(productData.variants) 
         ? productData.variants 
         : Object.values(productData.variants || {});
-
-      console.log(`${LOG_PREFIX} [DEBUG] Processed variants array:`, variants);
 
       variants.forEach((variant) => {
         if (variant.id) {
@@ -295,40 +265,24 @@
             materialId: materialId,
           };
           
-          console.log(`${LOG_PREFIX} [DEBUG] Variant ${variant.id}: useProjectReference = ${useProjectReference}, templateId = ${templateId}, materialId = ${materialId}`, {
-            variantId: variant.id,
-            metafieldValue: metafieldValue,
-            templateId: templateId,
-            materialId: materialId,
-            metafields: variant.metafields,
-          });
         }
       });
-
-      console.log(`${LOG_PREFIX} [DEBUG] Final variantMetafieldsMap from analytics:`, variantMetafieldsMap);
       return Promise.resolve();
     }
 
     // If analytics data doesn't have metafields, try API (fallback)
     const apiUrl = `${appUrl.replace(/\/$/, "")}/api/variant-metafields?shop=${encodeURIComponent(shopDomain || "")}&handle=${encodeURIComponent(productHandle)}`;
-    
-    console.log(`${LOG_PREFIX} [DEBUG] Loading variant metafields from API (fallback):`, apiUrl);
-    console.log(`${LOG_PREFIX} [DEBUG] appUrl:`, appUrl);
-    console.log(`${LOG_PREFIX} [DEBUG] shopDomain:`, shopDomain);
 
     return fetch(apiUrl)
       .then((response) => {
-        console.log(`${LOG_PREFIX} [DEBUG] API response status:`, response.status);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
         return response.json();
       })
       .then((data) => {
-        console.log(`${LOG_PREFIX} [DEBUG] API response data:`, data);
         if (data.variantMetafields) {
           variantMetafieldsMap = data.variantMetafields;
-          console.log(`${LOG_PREFIX} [DEBUG] Loaded variant metafields from API:`, variantMetafieldsMap);
         } else {
           console.warn(`${LOG_PREFIX} [DEBUG] No variant metafields in API response, data:`, data);
         }
@@ -387,9 +341,6 @@
 
   // Show/hide project reference input based on selected variant
   function updateProjectReferenceInput(selectedVariantId) {
-    console.log(`${LOG_PREFIX} [DEBUG] updateProjectReferenceInput called with variant ID:`, selectedVariantId);
-    console.log(`${LOG_PREFIX} [DEBUG] Current variantMetafieldsMap:`, variantMetafieldsMap);
-    
     // Try to find the correct form - look for the one with add to cart button
     let form = document.querySelector("form[action*='/cart/add'][id*='BuyButtons'], form[action*='/cart/add'].shopify-product-form");
     if (!form) {
@@ -400,14 +351,10 @@
       console.warn(`${LOG_PREFIX} [DEBUG] Cart form not found`);
       return;
     }
-    console.log(`${LOG_PREFIX} [DEBUG] Cart form found:`, form);
-    console.log(`${LOG_PREFIX} [DEBUG] Form ID:`, form.id);
-    console.log(`${LOG_PREFIX} [DEBUG] Form classes:`, form.className);
 
     // Remove existing input if present
     const existingInput = document.getElementById("project-reference-input-container");
     if (existingInput) {
-      console.log(`${LOG_PREFIX} [DEBUG] Removing existing input`);
       existingInput.remove();
     }
 
@@ -419,17 +366,9 @@
     
     let variantData = variantMetafieldsMap[selectedVariantId] || variantMetafieldsMap[gidFormat];
     
-    console.log(`${LOG_PREFIX} [DEBUG] Variant data for ${selectedVariantId}:`, variantData);
-    console.log(`${LOG_PREFIX} [DEBUG] Also checked GID format: ${gidFormat}`);
-    console.log(`${LOG_PREFIX} [DEBUG] All variantMetafieldsMap keys:`, Object.keys(variantMetafieldsMap));
-    
     const shouldShow = variantData?.useProjectReference === true;
-    console.log(`${LOG_PREFIX} [DEBUG] shouldShow:`, shouldShow);
 
     if (!shouldShow) {
-      console.log(`${LOG_PREFIX} [DEBUG] Project reference not enabled for variant:`, selectedVariantId);
-      console.log(`${LOG_PREFIX} [DEBUG] variantData:`, variantData);
-      console.log(`${LOG_PREFIX} [DEBUG] variantMetafieldsMap keys:`, Object.keys(variantMetafieldsMap));
       return;
     }
 
@@ -453,10 +392,8 @@
       }
     }
 
-    console.log(`${LOG_PREFIX} [DEBUG] Add to cart button found:`, addToCartButton);
     if (addToCartButton) {
-      console.log(`${LOG_PREFIX} [DEBUG] Add to cart button ID:`, addToCartButton.id);
-      console.log(`${LOG_PREFIX} [DEBUG] Add to cart button classes:`, addToCartButton.className);
+      // found add to cart button
     }
 
     // Try to find buy-buttons-block span (we want to insert input before it)
@@ -468,7 +405,6 @@
         buyButtonsBlock = productFormComponent.closest('.buy-buttons-block');
       }
     }
-    console.log(`${LOG_PREFIX} [DEBUG] Buy buttons block found:`, buyButtonsBlock);
 
     // Try to find quantity-selector-component (fallback option)
     let quantitySelector = form.querySelector('quantity-selector-component');
@@ -483,7 +419,6 @@
         quantitySelector = buyButtonsBlock.querySelector('quantity-selector-component');
       }
     }
-    console.log(`${LOG_PREFIX} [DEBUG] Quantity selector component found:`, quantitySelector);
 
     // Try to find product-form-buttons div (fallback option)
     let productFormButtons = form.querySelector('.product-form-buttons');
@@ -498,46 +433,26 @@
         productFormButtons = buyButtonsBlock.querySelector('.product-form-buttons');
       }
     }
-    console.log(`${LOG_PREFIX} [DEBUG] Product form buttons container found:`, productFormButtons);
 
     if (buyButtonsBlock && buyButtonsBlock.parentNode) {
       // Best option: insert before buy-buttons-block span
-      console.log(`${LOG_PREFIX} [DEBUG] Using buy-buttons-block as reference`);
       const inputContainer = createProjectReferenceInput();
       buyButtonsBlock.parentNode.insertBefore(inputContainer, buyButtonsBlock);
-      console.log(`${LOG_PREFIX} [DEBUG] Project reference input inserted before buy-buttons-block`);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container in DOM:`, document.getElementById("project-reference-input-container"));
-      console.log(`${LOG_PREFIX} [DEBUG] Input container parent:`, inputContainer.parentNode);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container visible:`, inputContainer.offsetParent !== null);
     } else if (quantitySelector && quantitySelector.parentNode) {
       // Fallback: insert before quantity-selector-component
-      console.log(`${LOG_PREFIX} [DEBUG] Using quantity-selector-component as reference`);
       const inputContainer = createProjectReferenceInput();
       quantitySelector.parentNode.insertBefore(inputContainer, quantitySelector);
-      console.log(`${LOG_PREFIX} [DEBUG] Project reference input inserted before quantity selector`);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container in DOM:`, document.getElementById("project-reference-input-container"));
-      console.log(`${LOG_PREFIX} [DEBUG] Input container parent:`, inputContainer.parentNode);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container visible:`, inputContainer.offsetParent !== null);
     } else if (productFormButtons) {
       // Fallback: insert at the beginning of product-form-buttons div (before quantity selector and add to cart)
-      console.log(`${LOG_PREFIX} [DEBUG] Using product-form-buttons container`);
       const inputContainer = createProjectReferenceInput();
       productFormButtons.insertBefore(inputContainer, productFormButtons.firstChild);
-      console.log(`${LOG_PREFIX} [DEBUG] Project reference input added to product-form-buttons container`);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container in DOM:`, document.getElementById("project-reference-input-container"));
-      console.log(`${LOG_PREFIX} [DEBUG] Input container parent:`, inputContainer.parentNode);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container visible:`, inputContainer.offsetParent !== null);
     } else if (addToCartButton && addToCartButton.parentNode) {
       const inputContainer = createProjectReferenceInput();
-      console.log(`${LOG_PREFIX} [DEBUG] Created input container:`, inputContainer);
       
       // Insert before add to cart button's parent (the span containing the button)
       const buttonParent = addToCartButton.closest('span') || addToCartButton.parentNode;
       buttonParent.parentNode.insertBefore(inputContainer, buttonParent);
       
-      console.log(`${LOG_PREFIX} [DEBUG] Project reference input inserted before add to cart button`);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container parent:`, inputContainer.parentNode);
-      console.log(`${LOG_PREFIX} [DEBUG] Input container in DOM:`, document.getElementById("project-reference-input-container"));
     } else {
       console.warn(`${LOG_PREFIX} [DEBUG] Add to cart button and container not found, using form fallback`);
       // Last fallback: find product-form-component and append there, or append to form
@@ -546,19 +461,15 @@
         const inputContainer = createProjectReferenceInput();
         // Try to insert before the form
         productFormComponent.insertBefore(inputContainer, form);
-        console.log(`${LOG_PREFIX} [DEBUG] Project reference input added before form in product-form-component`);
       } else {
         const inputContainer = createProjectReferenceInput();
         form.appendChild(inputContainer);
-        console.log(`${LOG_PREFIX} [DEBUG] Project reference input added to form (fallback)`);
       }
     }
   }
 
   // Setup variant change listener
   function setupVariantChangeListener() {
-    console.log(`${LOG_PREFIX} [DEBUG] setupVariantChangeListener called`);
-    
     // Try to find the correct form - look for the one with add to cart button
     let form = document.querySelector("form[action*='/cart/add'][id*='BuyButtons'], form[action*='/cart/add'].shopify-product-form");
     if (!form) {
@@ -569,30 +480,23 @@
       console.warn(`${LOG_PREFIX} [DEBUG] Cart form not found for variant listener`);
       return;
     }
-    console.log(`${LOG_PREFIX} [DEBUG] Cart form found for listener:`, form);
-    console.log(`${LOG_PREFIX} [DEBUG] Form ID:`, form.id);
 
     // Listen for variant ID changes in the form
     const variantIdInput = form.querySelector('input[name="id"], input[name="variant_id"]');
-    console.log(`${LOG_PREFIX} [DEBUG] Variant ID input found:`, variantIdInput);
     
     if (variantIdInput) {
-      console.log(`${LOG_PREFIX} [DEBUG] Variant ID input current value:`, variantIdInput.value);
-      console.log(`${LOG_PREFIX} [DEBUG] Variant ID input name:`, variantIdInput.name);
       
       // Watch for changes to variant ID input
       const observer = new MutationObserver(() => {
         const currentVariantId = variantIdInput.value;
-        console.log(`${LOG_PREFIX} [DEBUG] MutationObserver triggered, variant ID:`, currentVariantId);
         if (currentVariantId) {
           updateProjectReferenceInput(currentVariantId);
         } else {
           // Remove input if no variant selected
-          const existingInput = document.getElementById("project-reference-input-container");
-          if (existingInput) {
-            console.log(`${LOG_PREFIX} [DEBUG] Removing input (no variant selected)`);
-            existingInput.remove();
-          }
+            const existingInput = document.getElementById("project-reference-input-container");
+            if (existingInput) {
+              existingInput.remove();
+            }
         }
       });
 
@@ -600,28 +504,21 @@
         attributes: true,
         attributeFilter: ["value"],
       });
-      console.log(`${LOG_PREFIX} [DEBUG] MutationObserver set up`);
 
       // Also listen for input events
       variantIdInput.addEventListener("change", () => {
         const currentVariantId = variantIdInput.value;
-        console.log(`${LOG_PREFIX} [DEBUG] Variant ID input change event, value:`, currentVariantId);
         if (currentVariantId) {
           updateProjectReferenceInput(currentVariantId);
         }
       });
-      console.log(`${LOG_PREFIX} [DEBUG] Change event listener added`);
 
       // Check initial value
       if (variantIdInput.value) {
-        console.log(`${LOG_PREFIX} [DEBUG] Initial variant ID value found:`, variantIdInput.value);
         updateProjectReferenceInput(variantIdInput.value);
-      } else {
-        console.log(`${LOG_PREFIX} [DEBUG] No initial variant ID value`);
       }
     } else {
       console.warn(`${LOG_PREFIX} [DEBUG] Variant ID input not found in form`);
-      console.log(`${LOG_PREFIX} [DEBUG] All inputs in form:`, Array.from(form.querySelectorAll('input')).map(i => ({ name: i.name, type: i.type, value: i.value })));
     }
 
     // Also listen for Shopify variant change events (if available)
@@ -639,25 +536,15 @@
     // Listen for custom variant change events
     form.addEventListener("change", (event) => {
       const target = event.target;
-      console.log(`${LOG_PREFIX} [DEBUG] Form change event:`, {
-        target: target,
-        targetType: target.type,
-        targetTagName: target.tagName,
-        targetName: target.name,
-      });
-      
       if (
         target.type === "radio" ||
         target.tagName === "SELECT" ||
         (target.type === "checkbox" && target.name.includes("option"))
       ) {
-        console.log(`${LOG_PREFIX} [DEBUG] Variant option changed, waiting for variant ID update`);
         // Variant option changed, wait a bit for variant ID to update
         setTimeout(() => {
           const variantIdInput = form.querySelector('input[name="id"], input[name="variant_id"]');
-          console.log(`${LOG_PREFIX} [DEBUG] After timeout, variant ID input:`, variantIdInput);
           if (variantIdInput && variantIdInput.value) {
-            console.log(`${LOG_PREFIX} [DEBUG] Variant ID after option change:`, variantIdInput.value);
             updateProjectReferenceInput(variantIdInput.value);
           } else {
             console.warn(`${LOG_PREFIX} [DEBUG] No variant ID found after option change`);
@@ -665,12 +552,9 @@
         }, 100);
       }
     });
-    console.log(`${LOG_PREFIX} [DEBUG] Form change event listener added`);
   }
 
   function setupAddToCartListener() {
-    console.debug(`${LOG_PREFIX} Setting up add to cart listeners`);
-
     let isSubmitting = false;
 
     function processAddToCartForm(event, form) {
@@ -684,7 +568,6 @@
       }
 
       if (isSubmitting) {
-        console.debug(`${LOG_PREFIX} Already submitting, skipping`);
         return true;
       }
 
@@ -708,7 +591,6 @@
       // Get project reference if input exists (will be used later for cart properties)
       const projectReferenceInput = document.getElementById("project-reference-input");
       const projectReference = projectReferenceInput?.value?.trim() || null;
-      console.log(`${LOG_PREFIX} [ADD TO CART] Project reference:`, projectReference);
 
       if (!variantId) {
         alert("Error: Could not find product variant ID");
@@ -741,16 +623,6 @@
       const templateId = variantMetafields.templateId || null;
       const materialId = variantMetafields.materialId || null;
 
-      console.log(`${LOG_PREFIX} [ADD TO CART] Creating project before redirecting to editor...`);
-      console.log(`${LOG_PREFIX} [ADD TO CART] Variant ID:`, variantId);
-      console.log(`${LOG_PREFIX} [ADD TO CART] Quantity:`, quantity);
-      console.log(`${LOG_PREFIX} [ADD TO CART] SKU:`, sku);
-      
-      console.log(`${LOG_PREFIX} [ADD TO CART] variantMetafieldsMap:`, variantMetafieldsMap);
-      console.log(`${LOG_PREFIX} [ADD TO CART] variantMetafields:`, variantMetafields);
-      console.log(`${LOG_PREFIX} [ADD TO CART] Template ID:`, templateId);
-      console.log(`${LOG_PREFIX} [ADD TO CART] Material ID:`, materialId);
-
       callCreateProjectAPI(cartAddBaseUrl, { 
         variantSku: sku, 
         templateId: templateId,
@@ -758,15 +630,9 @@
         projectName: projectReference 
       })
         .then(({ projectId }) => {
-          console.log(`${LOG_PREFIX} [ADD TO CART] Project created:`, projectId);
-
           const cartAddUrl = buildCartAddUrl(variantId, quantity, projectId, projectReference);
-          console.log(`${LOG_PREFIX} [ADD TO CART] Cart add URL:`, cartAddUrl);
 
           const editorUrl = buildEditorUrl(projectId, cartAddUrl, sku);
-
-          console.log(`${LOG_PREFIX} [ADD TO CART] Editor URL:`, editorUrl);
-          console.log(`${LOG_PREFIX} [ADD TO CART] Redirecting to editor...`);
 
           // Show an alert with projectId, templateId, and SKU for debug purposes before redirecting
           alert(
@@ -807,14 +673,14 @@
 
       const handled = processAddToCartForm(event, form);
       if (handled) {
-        console.debug(`${LOG_PREFIX} Click intercepted for add to cart`);
+        // Click intercepted for add to cart
       }
     }
 
     function captureSubmit(event) {
       const form = event.target;
       if (processAddToCartForm(event, form)) {
-        console.debug(`${LOG_PREFIX} Submit intercepted for add to cart`);
+        // Submit intercepted for add to cart
       }
     }
 
@@ -822,22 +688,14 @@
     document.addEventListener("submit", captureSubmit, true);
   }
 
-  console.log(`${LOG_PREFIX} [DEBUG] Starting initialization`);
-  console.log(`${LOG_PREFIX} [DEBUG] appUrl:`, appUrl);
-  console.log(`${LOG_PREFIX} [DEBUG] shopDomain:`, shopDomain);
-  console.log(`${LOG_PREFIX} [DEBUG] isProductPage:`, isProductPage);
-
+  
   loadEditorSettings()
     .then(() => {
-      console.log(`${LOG_PREFIX} [DEBUG] Editor settings loaded, loading variant metafields`);
       return loadVariantMetafields();
     })
     .then(() => {
-      console.log(`${LOG_PREFIX} [DEBUG] Variant metafields loaded, setting up listeners`);
-      console.log(`${LOG_PREFIX} [DEBUG] Final variantMetafieldsMap:`, variantMetafieldsMap);
       setupVariantChangeListener();
       setupAddToCartListener();
-      console.log(`${LOG_PREFIX} [DEBUG] Initialization complete`);
     })
     .catch((error) => {
       console.error(`${LOG_PREFIX} [DEBUG] Failed to initialize:`, error);

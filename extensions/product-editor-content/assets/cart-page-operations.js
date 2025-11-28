@@ -14,8 +14,6 @@
   let settingsPromise = null;
   let cachedSettings = null;
 
-  console.info(`${LOG_PREFIX} Loaded`, { appUrl, shop: shopDomain });
-
   if (!appUrl) {
     console.warn(
       `${LOG_PREFIX} Missing appUrl. Please set App URL in App Embed settings.`,
@@ -41,13 +39,11 @@
           // Get cart URL from Shopify routes if available
           const cartUrl =
             (window.Shopify && window.Shopify.routes?.cart_url) || "/cart";
-          console.log(`${LOG_PREFIX} Redirecting to cart page: ${cartUrl}`);
           window.location.href = cartUrl;
         },
         true, // Use capture phase to intercept before other handlers
       );
       cartButton.dataset.redirectHandlerAttached = "true";
-      console.log(`${LOG_PREFIX} Cart button redirect handler attached`);
     }
   }
 
@@ -74,7 +70,6 @@
 
   // Only process cart items on cart page
   if (!isCartPage) {
-    console.debug(`${LOG_PREFIX} Not a cart page, skipping cart item processing.`);
     return;
   }
 
@@ -211,9 +206,6 @@
     for (const selector of thumbnailSelectors) {
       const img = cartItem.querySelector(selector);
       if (img) {
-        console.debug(`${LOG_PREFIX} Found thumbnail with selector: ${selector}`, {
-          projectId: getProjectIdFromCartItem(cartItem),
-        });
         return img;
       }
     }
@@ -239,13 +231,6 @@
         continue;
       }
 
-      console.debug(
-        `${LOG_PREFIX} Found thumbnail using fallback search`,
-        {
-          projectId: getProjectIdFromCartItem(cartItem),
-          src: src.substring(0, 100),
-        },
-      );
       return img;
     }
 
@@ -271,7 +256,6 @@
     }
 
     if (img.dataset.projectThumbnail === "true") {
-      console.debug(`${LOG_PREFIX} Thumbnail already replaced`, { projectId });
       return;
     }
 
@@ -295,7 +279,6 @@
           img.dataset.projectThumbnail = "true";
           img.dataset.projectId = projectId;
           if (!loggedProjects.has(projectId)) {
-            console.log(`${LOG_PREFIX} Thumbnail replaced`, { projectId });
             loggedProjects.add(projectId);
           }
         } else {
@@ -354,10 +337,6 @@
       loadEditorSettings()
         .then((settings) => {
           const editorUrl = buildEditorUrl(projectId, settings);
-          console.log(`${LOG_PREFIX} Redirecting to editor`, {
-            projectId,
-            editorUrl,
-          });
           redirectToEditor(editorUrl);
         })
         .catch((error) => {
@@ -381,7 +360,6 @@
   }
 
   function processCartItems() {
-    console.debug(`${LOG_PREFIX} Processing cart items...`);
     const selectors = [
       ".cart-item",
       ".cart__item",
@@ -397,10 +375,6 @@
     for (const selector of selectors) {
       cartItems = Array.from(document.querySelectorAll(selector));
       if (cartItems.length) {
-        console.debug(
-          `${LOG_PREFIX} Found cart items with selector ${selector}`,
-          cartItems.length,
-        );
         break;
       }
     }
@@ -410,13 +384,11 @@
       return;
     }
 
-    cartItems.forEach((cartItem, index) => {
+    cartItems.forEach((cartItem) => {
       const projectId = getProjectIdFromCartItem(cartItem);
       if (projectId) {
         fetchAndReplaceThumbnail(cartItem, projectId);
         ensureEditButton(cartItem, projectId);
-      } else {
-        console.debug(`${LOG_PREFIX} No project ID for item`, index);
       }
     });
   }

@@ -8,27 +8,27 @@
   const variantMetafieldsMap = {};
   {% if product.variants %}
     {% for variant in product.variants %}
-      {% assign useProjectRefMetafield = variant.metafields.custom.use_project_reference %}
-      {% assign templateIdMetafield = variant.metafields.custom.template_id %}
-      {% assign materialIdMetafield = variant.metafields.custom.material_id %}
-      {% assign useProjectRef = false %}
-      {% if useProjectRefMetafield %}
-        {% assign metafield_value = useProjectRefMetafield.value %}
+      {% assign use_project_ref_metafield = variant.metafields.custom.use_project_reference %}
+      {% assign template_id_metafield = variant.metafields.custom.template_id %}
+      {% assign material_id_metafield = variant.metafields.custom.material_id %}
+      {% assign use_project_ref = false %}
+      {% if use_project_ref_metafield %}
+        {% assign metafield_value = use_project_ref_metafield.value %}
         {% if metafield_value == "true" or metafield_value == true %}
-          {% assign useProjectRef = true %}
+          {% assign use_project_ref = true %}
         {% endif %}
       {% endif %}
-      {% assign templateId = templateIdMetafield.value | default: null %}
-      {% assign materialId = materialIdMetafield.value | default: null %}
+      {% assign template_id = template_id_metafield.value | default: null %}
+      {% assign material_id = material_id_metafield.value | default: null %}
       variantMetafieldsMap['{{ variant.id }}'] = { 
-        useProjectReference: {{ useProjectRef }}, 
-        templateId: {% if templateId %}'{{ templateId }}'{% else %}null{% endif %},
-        materialId: {% if materialId %}'{{ materialId }}'{% else %}null{% endif %}
+        useProjectReference: {{ use_project_ref }}, 
+        templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
+        materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %}
       };
       variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { 
-        useProjectReference: {{ useProjectRef }}, 
-        templateId: {% if templateId %}'{{ templateId }}'{% else %}null{% endif %},
-        materialId: {% if materialId %}'{{ materialId }}'{% else %}null{% endif %}
+        useProjectReference: {{ use_project_ref }}, 
+        templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
+        materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %}
       };
     {% endfor %}
   {% endif %}

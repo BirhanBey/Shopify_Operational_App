@@ -49,7 +49,6 @@ export const loader = async ({ request }) => {
             const authResult = await authenticate.admin(request);
             admin = authResult.admin;
             session = authResult.session;
-            console.log("[API] Authentication successful for variant metafields request");
         } catch (authError) {
             // If authentication fails, try to get session from sessionStorage
             console.log("[API] Admin authentication failed, trying to get session from storage");
@@ -60,8 +59,6 @@ export const loader = async ({ request }) => {
 
                 if (sessions && sessions.length > 0) {
                     session = sessions[0];
-                    console.log("[API] Found session for shop:", shop);
-
                     // Create admin API client with this session
                     const { default: shopify } = await import("../shopify.server");
                     admin = new shopify.clients.Graphql({ session });
@@ -107,13 +104,11 @@ export const loader = async ({ request }) => {
             }
         `;
 
-        // console.log("[API] Querying product with handle:", productHandle);
         const response = await admin.graphql(PRODUCT_QUERY, {
             variables: { handle: productHandle },
         });
 
         const data = await response.json();
-        console.log("[API] GraphQL response:", JSON.stringify(data, null, 2));
 
         if (data.errors) {
             console.error("[API] GraphQL errors:", data.errors);
@@ -131,19 +126,12 @@ export const loader = async ({ request }) => {
 
         // Build variant metafields map
         const variants = data.data?.product?.variants?.edges || [];
-        console.log("[API] Found variants:", variants.length);
         const variantMetafields = {};
 
         variants.forEach((edge) => {
             const variant = edge.node;
             const variantId = variant.id;
             const metafield = variant.metafield;
-
-            console.log("[API] Processing variant:", {
-                variantId: variantId,
-                metafield: metafield,
-                metafieldValue: metafield?.value,
-            });
 
             // Extract numeric ID from GID format (gid://shopify/ProductVariant/123456 -> 123456)
             const numericId = variantId.includes('/')
@@ -162,8 +150,6 @@ export const loader = async ({ request }) => {
                 variantMetafields[numericId] = variantMetafields[variantId];
             }
         });
-
-        console.log("[API] Final variantMetafields:", variantMetafields);
 
         return new Response(
             JSON.stringify({

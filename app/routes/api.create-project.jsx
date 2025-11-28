@@ -14,15 +14,10 @@ const corsHeaders = {
  * Based on WordPress plugin's generate_request_body() method
  */
 function generateRequestBody(editorSettings, overrideData = {}) {
-    console.log(`${LOG_PREFIX} [STEP 1] Starting generateRequestBody`);
-    console.log(`${LOG_PREFIX} [STEP 1] Editor settings:`, {
-        customerId: editorSettings.editorCustomerId,
-        domain: editorSettings.editorDomain,
-        apiKey: editorSettings.editorApiKey ? `${editorSettings.editorApiKey.substring(0, 20)}...` : null,
-    });
-
-    const hasOverride = (key) => Object.prototype.hasOwnProperty.call(overrideData || {}, key);
-    const pick = (key, fallback) => (hasOverride(key) ? overrideData[key] : fallback);
+    const hasOverride = (key) =>
+        Object.prototype.hasOwnProperty.call(overrideData || {}, key);
+    const pick = (key, fallback) =>
+        hasOverride(key) ? overrideData[key] : fallback;
 
     const sanitizeReturnUrl = (url) => {
         if (!url) return url;
@@ -34,13 +29,21 @@ function generateRequestBody(editorSettings, overrideData = {}) {
             }
             return parsed.toString();
         } catch (error) {
-            console.warn(`${LOG_PREFIX} [SANITIZE] Invalid returnUrl provided`, url, error);
+            console.warn(
+                `${LOG_PREFIX} [SANITIZE] Invalid returnUrl provided`,
+                url,
+                error
+            );
             return url;
         }
     };
 
-    const defaultReturnUrl = sanitizeReturnUrl("https://pelemanappstoredev.myshopify.com/cart");
-    const overrideReturnUrl = hasOverride("returnUrl") ? overrideData.returnUrl : null;
+    const defaultReturnUrl = sanitizeReturnUrl(
+        "https://pelemanappstoredev.myshopify.com/cart"
+    );
+    const overrideReturnUrl = hasOverride("returnUrl")
+        ? overrideData.returnUrl
+        : null;
 
     // Real data from WordPress logs (defaults, can be overridden)
     const testData = {
@@ -48,48 +51,117 @@ function generateRequestBody(editorSettings, overrideData = {}) {
         templateId: pick("templateId", "tpl686566"),
         designId: pick("designId", ""),
         materialId: pick("materialId", "Wood"),
+        backgroundId: pick("backgroundId", ""),
+        colorCode: pick("colorCode", ""),
+        formatId: pick("formatId", ""),
 
         // Project details
         projectName: pick("projectName", "Default Project Name"),
         returnUrl: overrideReturnUrl ?? defaultReturnUrl,
         userEmail: pick("userEmail", "birhan.yorukoglu@peleman.com"),
         language: pick("language", "en"),
+        userId: pick("userId", 0),
 
         // Editor settings
         sheetsMax: pick("sheetsMax", 15),
         includedPages: pick("includedPages", 0),
         locale: pick("locale", "en_GB"),
+        // Pricing (dummy defaults, can be overridden)
+        basePrice: pick("basePrice", 7.19),
+        pagePrice: pick("pagePrice", 0),
+        // Tax status (dummy defaults, can be overridden)
+        taxDisplayFrontend: pick("taxDisplayFrontend", "excl"),
+        taxDisplayBackend: pick("taxDisplayBackend", "excl"),
+        taxRate: pick("taxRate", 21),
 
         // Product details
         personalisations: pick("personalisations", "f2d"),
         f2dArticleCode: pick("f2dArticleCode", "25290A415AL"),
         productUnitCode: pick("productUnitCode", "BOX"),
+        amount: pick("amount", 1),
+        sku: pick("sku", ""),
+
+        // Organisation / instructions (dummy defaults)
+        organisationId: pick("organisationId", ""),
+        organisationApiKey: pick("organisationApiKey", editorSettings.editorApiKey || ""),
+        editorInstructions: pick("editorInstructions", [
+            "usedesigns",
+            "usebackgrounds",
+            "uselayers",
+            "useimageupload",
+            "useelements",
+            "usestockphotos",
+            "useshowsafezone",
+            "usetext",
+            "usesettings",
+            "useshowcropzone",
+        ]),
     };
 
-    console.log(`${LOG_PREFIX} [STEP 1] Hard-coded test data prepared:`, testData);
+    // Currency information (dummy defaults, can be overridden)
+    const currency = overrideData.currency || {};
+    const currencySymbol = currency.symbol || "&euro;";
+    const currencyLocale = currency.locale || "en_GB";
+    const currencyDecimal = currency.decimal || ".";
 
     // Build request body matching WordPress plugin structure
+    // We aim to mirror New_PIE_Project_Request::generate_request_body()
     const requestBody = {
+        // Core identifiers
         customerid: editorSettings.editorCustomerId || "",
         templateid: testData.templateId,
         designid: testData.designId,
-        materialid: testData.materialId,
+        backgroundid: testData.backgroundId,
+        colorcode: testData.colorCode,
+        formatid: testData.formatId,
+
+        // Project + user
         projectname: testData.projectName,
         returnurl: testData.returnUrl,
+        userid: testData.userId,
         useremail: testData.userEmail,
         lang: testData.language,
+
+        // Organisation + instructions
+        organisationid: testData.organisationId,
+        a: testData.organisationApiKey,
+        editorinstructions: testData.editorInstructions,
+
+        // Editor settings
         sheetsmax: testData.sheetsMax,
+
+        // Pricing (dummy or overridden)
+        pricing: {
+            base: { price: testData.basePrice },
+            page: { price: testData.pagePrice },
+        },
+
+        // Tax status (dummy or overridden)
+        tax_status: {
+            tax_display_frontend: testData.taxDisplayFrontend,
+            tax_display_backend: testData.taxDisplayBackend,
+            tax_rate: testData.taxRate,
+        },
+
+        // Page / product details
         includedpages: testData.includedPages,
-        locale: testData.locale,
         personalisations: testData.personalisations,
         f2d_article_code: testData.f2dArticleCode,
         productUnitCode: testData.productUnitCode,
-        v: 2, // API version
-    };
+        amount: testData.amount,
+        materialid: testData.materialId,
+        SKU: testData.sku,
 
-    console.log(`${LOG_PREFIX} [STEP 1] Overrides applied:`, overrideData);
-    console.log(`${LOG_PREFIX} [STEP 1] Request body generated successfully`);
-    console.log(`${LOG_PREFIX} [STEP 1] Request body structure:`, JSON.stringify(requestBody, null, 2));
+        // Currency block
+        currency: {
+            symbol: currencySymbol,
+            locale: currencyLocale,
+            decimal: currencyDecimal,
+        },
+
+        // API version
+        v: 2,
+    };
 
     return requestBody;
 }
@@ -98,16 +170,12 @@ function generateRequestBody(editorSettings, overrideData = {}) {
  * Build editor API URL
  */
 function buildEditorApiUrl(editorDomain) {
-    console.log(`${LOG_PREFIX} [STEP 2] Building editor API URL`);
     const endpoint = "/editor/api/createprojectAPI.php";
     const baseUrl = editorDomain.endsWith("/")
         ? editorDomain.slice(0, -1)
         : editorDomain;
     const fullUrl = `${baseUrl}${endpoint}`;
 
-    console.log(`${LOG_PREFIX} [STEP 2] Editor domain:`, editorDomain);
-    console.log(`${LOG_PREFIX} [STEP 2] Endpoint:`, endpoint);
-    console.log(`${LOG_PREFIX} [STEP 2] Full URL:`, fullUrl);
 
     return fullUrl;
 }
@@ -116,21 +184,16 @@ function buildEditorApiUrl(editorDomain) {
  * Build authentication headers
  */
 function buildAuthHeaders(apiKey) {
-    console.log(`${LOG_PREFIX} [STEP 3] Building authentication headers`);
     const headers = {
         PIEAPIKEY: apiKey || "",
     };
-
-    console.log(`${LOG_PREFIX} [STEP 3] Auth header prepared:`, {
-        PIEAPIKEY: apiKey ? `${apiKey.substring(0, 20)}...` : "MISSING",
-    });
-
     return headers;
 }
 
 /**
  * Flatten nested objects for query string
  * WordPress sends nested objects as query parameters with bracket notation
+ * Skips empty strings, null, undefined values
  */
 function flattenObject(obj, prefix = '', queryParams) {
     for (const key in obj) {
@@ -138,36 +201,47 @@ function flattenObject(obj, prefix = '', queryParams) {
             const value = obj[key];
             const newKey = prefix ? `${prefix}[${key}]` : key;
 
-            if (value === null || value === undefined) {
-                continue; // Skip null/undefined values
+            // Skip null, undefined, or empty string values
+            if (value === null || value === undefined || value === '') {
+                continue;
             } else if (Array.isArray(value)) {
                 // Handle arrays - WordPress sends arrays as indexed query params
-                value.forEach((item, index) => {
-                    if (typeof item === 'object' && item !== null) {
-                        // Nested objects in arrays
-                        Object.keys(item).forEach(subKey => {
-                            queryParams.append(`${newKey}[${index}][${subKey}]`, item[subKey]);
-                        });
-                    } else {
-                        queryParams.append(`${newKey}[${index}]`, item);
-                    }
-                });
+                // Only add non-empty arrays
+                if (value.length > 0) {
+                    value.forEach((item, index) => {
+                        // Skip empty array items
+                        if (item === null || item === undefined || item === '') {
+                            return;
+                        }
+                        if (typeof item === 'object' && item !== null) {
+                            // Nested objects in arrays
+                            Object.keys(item).forEach(subKey => {
+                                const subValue = item[subKey];
+                                // Skip empty nested values
+                                if (subValue !== null && subValue !== undefined && subValue !== '') {
+                                    queryParams.append(`${newKey}[${index}][${subKey}]`, subValue);
+                                }
+                            });
+                        } else {
+                            queryParams.append(`${newKey}[${index}]`, item);
+                        }
+                    });
+                }
             } else if (typeof value === 'object' && value !== null) {
                 // Recursively flatten nested objects
                 flattenObject(value, newKey, queryParams);
             } else {
-                queryParams.append(newKey, String(value));
+                // Only add non-empty string values
+                const stringValue = String(value);
+                if (stringValue.trim() !== '') {
+                    queryParams.append(newKey, stringValue);
+                }
             }
         }
     }
 }
 
-async function createProjectResponse({ request, shop, overrides = {} }) {
-    console.log(`${LOG_PREFIX} ========================================`);
-    console.log(`${LOG_PREFIX} [INIT] Create project API called`);
-    console.log(`${LOG_PREFIX} [INIT] Request URL:`, request.url);
-    console.log(`${LOG_PREFIX} [INIT] Shop parameter:`, shop);
-
+async function createProjectResponse({ shop, overrides = {} }) {
     if (!shop) {
         console.error(`${LOG_PREFIX} [ERROR] Shop parameter is required`);
         return new Response(
@@ -186,8 +260,6 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
     }
 
     try {
-        console.log(`${LOG_PREFIX} [INIT] Loading editor settings from database`);
-
         const settings = await prisma.editorSettings.findUnique({
             where: { shop },
             select: {
@@ -197,11 +269,7 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
             },
         });
 
-        console.log(`${LOG_PREFIX} [INIT] Editor settings loaded:`, {
-            hasApiKey: !!settings?.editorApiKey,
-            hasDomain: !!settings?.editorDomain,
-            hasCustomerId: !!settings?.editorCustomerId,
-        });
+
 
         if (!settings || !settings.editorApiKey || !settings.editorDomain || !settings.editorCustomerId) {
             console.error(`${LOG_PREFIX} [ERROR] Editor settings incomplete or missing`);
@@ -225,39 +293,25 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
             );
         }
 
-        console.log(`${LOG_PREFIX} [INIT] Overrides received from client:`, overrides);
-
-        console.log(`${LOG_PREFIX} [MAIN] Starting request body generation`);
         const requestBody = generateRequestBody(settings, overrides);
-        console.log(`${LOG_PREFIX} [MAIN] Request body generation completed`);
 
-        // Log complete request body as JSON for debugging
-        console.log(`${LOG_PREFIX} ========================================`);
-        console.log(`${LOG_PREFIX} [JSON] Complete request body to editor (JSON format):`);
-        console.log(JSON.stringify(requestBody, null, 2));
-        console.log(`${LOG_PREFIX} ========================================`);
 
-        console.log(`${LOG_PREFIX} [MAIN] Building API URL`);
         const apiUrl = buildEditorApiUrl(settings.editorDomain);
-        console.log(`${LOG_PREFIX} [MAIN] API URL built:`, apiUrl);
-
-        console.log(`${LOG_PREFIX} [MAIN] Building auth headers`);
         const authHeaders = buildAuthHeaders(settings.editorApiKey);
-        console.log(`${LOG_PREFIX} [MAIN] Auth headers built`);
 
-        console.log(`${LOG_PREFIX} [STEP 4] Starting HTTP request to editor API`);
-        console.log(`${LOG_PREFIX} [STEP 4] Request URL:`, apiUrl);
-        console.log(`${LOG_PREFIX} [STEP 4] Request method: GET`);
-        console.log(`${LOG_PREFIX} [STEP 4] Request headers:`, authHeaders);
-        console.log(`${LOG_PREFIX} [STEP 4] Request body (will be converted to query params):`, requestBody);
 
         const queryParams = new URLSearchParams();
         flattenObject(requestBody, '', queryParams);
+
+        // Add API key to query string (as 'a' parameter, matching WordPress plugin)
+        if (settings.editorApiKey) {
+            queryParams.append('a', settings.editorApiKey);
+        }
+
         const queryString = queryParams.toString();
         const fullUrlWithParams = `${apiUrl}?${queryString}`;
 
-        console.log(`${LOG_PREFIX} [STEP 4] Query string length:`, queryString.length);
-        console.log(`${LOG_PREFIX} [STEP 4] Full URL with params (first 200 chars):`, fullUrlWithParams.substring(0, 200) + '...');
+
 
         const startTime = Date.now();
         let response;
@@ -267,8 +321,6 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
         let decodedResponse = null;
 
         try {
-            console.log(`${LOG_PREFIX} [STEP 4] Sending fetch request...`);
-
             response = await fetch(fullUrlWithParams, {
                 method: 'GET',
                 headers: {
@@ -277,16 +329,8 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
                 },
             });
 
-            const requestDuration = Date.now() - startTime;
             responseStatus = response.status;
             responseBody = await response.text();
-
-            console.log(`${LOG_PREFIX} [STEP 4] HTTP request completed`);
-            console.log(`${LOG_PREFIX} [STEP 4] Request duration:`, requestDuration, 'ms');
-            console.log(`${LOG_PREFIX} [STEP 4] Response status:`, responseStatus);
-            console.log(`${LOG_PREFIX} [STEP 4] Response headers:`, Object.fromEntries(response.headers.entries()));
-            console.log(`${LOG_PREFIX} [STEP 4] Response body length:`, responseBody.length);
-            console.log(`${LOG_PREFIX} [STEP 4] Response body (first 500 chars):`, responseBody.substring(0, 500));
 
             const trimmedBody = responseBody?.trim() ?? "";
             const isJson = !!trimmedBody && (response.headers.get("content-type") || "").includes("application/json");
@@ -296,8 +340,7 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
             } else if (isJson) {
                 try {
                     decodedResponse = JSON.parse(trimmedBody);
-                    console.log(`${LOG_PREFIX} [STEP 4] Response parsed as JSON successfully`);
-                    console.log(`${LOG_PREFIX} [STEP 4] Parsed response:`, JSON.stringify(decodedResponse, null, 2));
+
                 } catch (parseError) {
                     console.error(`${LOG_PREFIX} [STEP 4] JSON parse error:`, parseError);
                     console.error(`${LOG_PREFIX} [STEP 4] Raw response body:`, trimmedBody);
@@ -323,10 +366,10 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
 
                 if (decodedResponse.data?.projectid) {
                     projectId = decodedResponse.data.projectid;
-                    console.log(`${LOG_PREFIX} [STEP 4] Project ID extracted from data.projectid:`, projectId);
+
                 } else if (decodedResponse.projectid) {
                     projectId = decodedResponse.projectid;
-                    console.log(`${LOG_PREFIX} [STEP 4] Project ID extracted from projectid:`, projectId);
+
                 }
             }
 
@@ -336,11 +379,7 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
                 throw new Error('No project ID received from editor API');
             }
 
-            console.log(`${LOG_PREFIX} [STEP 4] Project creation successful!`);
-            console.log(`${LOG_PREFIX} [STEP 4] Project ID:`, projectId);
 
-            console.log(`${LOG_PREFIX} [STEP 5] Preparing success response`);
-            console.log(`${LOG_PREFIX} ========================================`);
 
             return new Response(
                 JSON.stringify({
@@ -383,7 +422,6 @@ async function createProjectResponse({ request, shop, overrides = {} }) {
                     requestInfo: {
                         url: apiUrl,
                         method: "GET",
-                        duration: requestDuration,
                     },
                 }),
                 {
@@ -472,7 +510,6 @@ export const action = async ({ request }) => {
 
 // Handle OPTIONS request for CORS preflight
 export const options = async () => {
-    console.log(`${LOG_PREFIX} [CORS] OPTIONS request received`);
     return new Response(null, {
         status: 200,
         headers: corsHeaders,
