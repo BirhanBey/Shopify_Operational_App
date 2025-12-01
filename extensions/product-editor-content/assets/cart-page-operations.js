@@ -247,6 +247,123 @@
   }
 
   const loggedProjects = new Set();
+  const projectDetailsCache = {};
+
+  function applyProjectNameToCartItem(cartItem, projectId, projectName) {
+    if (!cartItem || !projectName) {
+      return;
+    }
+
+    const variantsContainer = cartItem.querySelector(".cart-items__variants");
+    if (!variantsContainer) {
+      return;
+    }
+
+    if (variantsContainer.dataset.projectNameAttached === "true") {
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+
+    const dt = document.createElement("dt");
+    dt.textContent = "Project name:";
+    dt.style.fontWeight = "bold";
+
+    const dd = document.createElement("dd");
+    dd.textContent = projectName;
+    dd.style.fontStyle = "Italic";
+    dd.style.textDecoration = "underline";
+    dd.style.textUnderlineColor = "#2D2A6C";
+    dd.style.marginBottom = "5px";
+
+
+    wrapper.appendChild(dt);
+    wrapper.appendChild(dd);
+
+    if (variantsContainer.firstChild) {
+      variantsContainer.insertBefore(wrapper, variantsContainer.firstChild);
+    } else {
+      variantsContainer.appendChild(wrapper);
+    }
+
+    variantsContainer.dataset.projectNameAttached = "true";
+  }
+
+  function fetchAndApplyProjectDetails(cartItem, projectId) {
+    if (!cartItem || !projectId) {
+      return;
+    }
+
+    if (projectDetailsCache[projectId]) {
+      const cached = projectDetailsCache[projectId];
+      applyProjectNameToCartItem(cartItem, projectId, cached.projectName);
+      // Price is kept in cache (cached.totalPrice) for future use but not applied to DOM here
+      return;
+    }
+
+    const detailsUrl = `${appUrl}/api/project-details?projectid=${encodeURIComponent(
+      projectId,
+    )}&shop=${encodeURIComponent(shopDomain || "")}`;
+
+    fetch(detailsUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!data || !data.success || !data.project) {
+          console.warn(
+            `${LOG_PREFIX} [VALIDATION] Invalid project details response`,
+            data,
+          );
+          return;
+        }
+
+        const project = data.project;
+        const projectTotalPrice =
+          project &&
+          project.result &&
+          Object.prototype.hasOwnProperty.call(project.result, "totalprice")
+            ? project.result.totalprice
+            : null;
+        const projectName =
+          project.name ||
+          project.projectname ||
+          project.title ||
+          project.project_title ||
+          null;
+
+        // Validation log so we can inspect full project details (e.g. pricing)
+        console.log(
+          `${LOG_PREFIX} [VALIDATION] Full project details for cart item`,
+          {
+            projectId,
+            projectName,
+            projectTotalPrice,
+            project,
+          },
+        );
+
+        // Cache project, name and price for potential future use
+        projectDetailsCache[projectId] = {
+          project,
+          projectName,
+          totalPrice: projectTotalPrice,
+        };
+        applyProjectNameToCartItem(cartItem, projectId, projectName);
+      })
+      .catch((error) => {
+        console.warn(
+          `${LOG_PREFIX} Failed to load project details for validation`,
+          {
+            projectId,
+            error,
+          },
+        );
+      });
+  }
 
   function fetchAndReplaceThumbnail(cartItem, projectId) {
     const img = findThumbnailElement(cartItem);
@@ -389,6 +506,7 @@
       if (projectId) {
         fetchAndReplaceThumbnail(cartItem, projectId);
         ensureEditButton(cartItem, projectId);
+        fetchAndApplyProjectDetails(cartItem, projectId);
       }
     });
   }

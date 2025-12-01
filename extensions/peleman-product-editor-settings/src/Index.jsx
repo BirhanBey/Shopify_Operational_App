@@ -164,7 +164,8 @@ function PelemanProductEditorSettings() {
     const [includedPages, setIncludedPages] = useState("");
     const [productUnitCode, setProductUnitCode] = useState("");
     const [isSaving, setIsSaving] = useState(false);
-    const [isEditorSettingsOpen, setIsEditorSettingsOpen] = useState(false);
+    // Open Editor Settings by default on initial load
+    const [isEditorSettingsOpen, setIsEditorSettingsOpen] = useState(true);
     const [isAdditionalSettingsOpen, setIsAdditionalSettingsOpen] = useState(false);
 
     const loadProductVariants = useCallback(async () => {
