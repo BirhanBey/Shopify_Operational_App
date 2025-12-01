@@ -7,6 +7,16 @@
   const shopDomain =
     config.shop ||
     (window.Shopify && (window.Shopify.shop || window.Shopify?.routes?.root));
+  const feeVariantIdRaw = (config.feeVariantId || "").trim();
+
+  function normalizeVariantId(value) {
+    if (!value) return null;
+    const str = String(value);
+    const match = str.match(/(\d+)\s*$/);
+    return match ? match[1] : str;
+  }
+
+  const feeVariantId = normalizeVariantId(feeVariantIdRaw);
 
   const EDIT_BUTTON_CLASS = "editor-cart-edit-button";
   const EDIT_BUTTON_LABEL = "Edit your project";
@@ -178,6 +188,61 @@
     return null;
   }
 
+  function getCartItemKey(cartItem) {
+    if (!cartItem) return null;
+    return (
+      cartItem.getAttribute("data-key") ||
+      cartItem.getAttribute("data-cart-item-key") ||
+      cartItem.dataset.key ||
+      cartItem.dataset.cartItemKey ||
+      null
+    );
+  }
+
+  function isPersonalisationFeeCartItem(cartItem) {
+    if (!cartItem) return false;
+
+    // If we've already tagged this row, trust the tag
+    if (cartItem.dataset.personalisationFee === "true") {
+      return true;
+    }
+
+    // Prefer detecting by variant ID when available
+    if (feeVariantId) {
+      const variantSource =
+        cartItem.querySelector("[data-variant-id]") ||
+        cartItem.querySelector(
+          "cart-quantity-selector-component[data-variant-id]",
+        );
+
+      if (variantSource) {
+        const rawId =
+          variantSource.getAttribute("data-variant-id") ||
+          variantSource.dataset.variantId ||
+          "";
+        const match = String(rawId).match(/(\d+)\s*$/);
+        const variantIdStr = match ? match[1] : rawId;
+
+        if (variantIdStr === feeVariantId) {
+          cartItem.dataset.personalisationFee = "true";
+          return true;
+        }
+      }
+    }
+
+    // Fallback: text-based detection (kept as a safety net)
+    const headerCell =
+      cartItem.querySelector(
+        ".cart-item__details, .cart-items__details, .cart__info, td[headers='productInformation']",
+      ) || cartItem;
+    const text = (headerCell.textContent || "").toLowerCase();
+    const isFee = text.includes("personalisation fee");
+    if (isFee) {
+      cartItem.dataset.personalisationFee = "true";
+    }
+    return isFee;
+  }
+
   const thumbnailSelectors = [
     "img.cart-item__image",
     "img.cart__image",
@@ -201,6 +266,79 @@
     "img[alt*='Product']",
   ];
 
+  function updatePersonalisationFeeProperties(projectId, breakdown) {
+    if (!projectId) return;
+    if (!Array.isArray(breakdown) || breakdown.length === 0) {
+      return;
+    }
+
+    const allCartItems = document.querySelectorAll(
+      ".cart-item, .cart__item, [data-cart-item], .line-item, tr.cart-items__table-row",
+    );
+
+    allCartItems.forEach((item) => {
+      // Only touch Personalisation fee rows
+      if (!isPersonalisationFeeCartItem(item)) {
+        return;
+      }
+
+      const itemProjectId = getProjectIdFromCartItem(item);
+      if (itemProjectId !== projectId) {
+        return;
+      }
+
+      const quantityCell = item.querySelector("td.cart-items__quantity");
+      if (!quantityCell) {
+        return;
+      }
+
+      // Clear quantity cell content (quantity selector already removed earlier)
+      quantityCell.innerHTML = "";
+
+      const container = document.createElement("div");
+      container.className = "editor-price-breakdowns";
+
+      const titleEl = document.createElement("div");
+      titleEl.textContent = "Price Breakdowns";
+      titleEl.style.fontWeight = "bold";
+      titleEl.style.marginBottom = "4px";
+      container.appendChild(titleEl);
+
+      breakdown.forEach((entry) => {
+        if (!entry) return;
+
+        const desc =
+          entry.desc ||
+          entry.description ||
+          entry.label ||
+          "";
+
+        const priceTotalRaw =
+          entry.pricetotal ?? entry.priceTotal ?? entry.total ?? null;
+
+        const lineDiv = document.createElement("div");
+        lineDiv.className = "editor-price-breakdowns__line";
+
+        let formattedValue = "";
+        if (priceTotalRaw !== null && priceTotalRaw !== undefined) {
+          const numeric = Number(priceTotalRaw);
+          if (!Number.isNaN(numeric)) {
+            formattedValue = numeric.toFixed(2); // max 2 decimals
+          } else {
+            formattedValue = String(priceTotalRaw);
+          }
+        }
+
+        lineDiv.textContent = formattedValue
+          ? `${desc}: ${formattedValue}`
+          : desc;
+
+        container.appendChild(lineDiv);
+      });
+
+      quantityCell.appendChild(container);
+    });
+  }
   function findThumbnailElement(cartItem) {
     // Try specific selectors first
     for (const selector of thumbnailSelectors) {
@@ -248,6 +386,445 @@
 
   const loggedProjects = new Set();
   const projectDetailsCache = {};
+
+  let cartStatePromise = null;
+
+  function fetchCartState() {
+    if (cartStatePromise) {
+      return cartStatePromise;
+    }
+
+    cartStatePromise = fetch("/cart.js")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
+      .catch((error) => {
+        console.warn(
+          `${LOG_PREFIX} [FEE] Failed to load cart.js state`,
+          error,
+        );
+        cartStatePromise = null;
+        return null;
+      });
+
+    return cartStatePromise;
+  }
+
+  function logFeeDeltaForProject(projectId, projectTotalPrice) {
+    if (!projectId || projectTotalPrice == null) {
+      return;
+    }
+
+    return fetchCartState()
+      .then((cartState) => {
+        if (!cartState || !Array.isArray(cartState.items)) {
+          return;
+        }
+
+        const mainItem = cartState.items.find((item) => {
+          const props = item.properties || {};
+          return (
+            props.projectid === projectId &&
+            props.is_personalisation_fee !== "true"
+          );
+        });
+
+        if (!mainItem) {
+          console.warn(
+            `${LOG_PREFIX} [FEE] No main line item found in cart.js for project`,
+            { projectId },
+          );
+          return;
+        }
+
+        const linePriceCents =
+          typeof mainItem.final_line_price === "number"
+            ? mainItem.final_line_price
+            : mainItem.line_price;
+
+        let editorPriceCents = null;
+        const numeric = parseFloat(
+          String(projectTotalPrice).replace(/\s/g, "").replace(",", "."),
+        );
+        if (!Number.isNaN(numeric)) {
+          editorPriceCents = Math.round(numeric * 100);
+        }
+
+        if (editorPriceCents == null || typeof linePriceCents !== "number") {
+          console.warn(
+            `${LOG_PREFIX} [FEE] Could not compute fee delta for project`,
+            {
+              projectId,
+              projectTotalPrice,
+              linePriceCents,
+            },
+          );
+          return;
+        }
+
+        const deltaInCents = editorPriceCents - linePriceCents;
+
+        console.log(`${LOG_PREFIX} [FEE] Fee delta for project`, {
+          projectId,
+          editorTotalPriceCents: editorPriceCents,
+          shopifyLinePriceCents: linePriceCents,
+          deltaInCents,
+        });
+
+        const existing = projectDetailsCache[projectId] || {};
+        projectDetailsCache[projectId] = {
+          ...existing,
+          editorTotalPriceCents: editorPriceCents,
+          shopifyLinePriceCents: linePriceCents,
+          deltaInCents,
+        };
+
+        syncPersonalisationFeeLine(projectId, cartState);
+      })
+      .catch((error) => {
+        console.warn(
+          `${LOG_PREFIX} [FEE] Failed to log fee delta for project`,
+          {
+            projectId,
+            error,
+          },
+        );
+      });
+  }
+
+  function syncPersonalisationFeeLine(projectId, cartState) {
+    if (!feeVariantId) {
+      return;
+    }
+    if (!cartState || !Array.isArray(cartState.items)) {
+      return;
+    }
+
+    const cache = projectDetailsCache[projectId];
+    if (!cache || typeof cache.deltaInCents !== "number") {
+      return;
+    }
+
+    const { deltaInCents, editorTotalPriceCents, shopifyLinePriceCents } =
+      cache;
+
+    const feeItem = cartState.items.find((item) => {
+      const props = item.properties || {};
+      return (
+        String(item.variant_id) === feeVariantId &&
+        props.is_personalisation_fee === "true" &&
+        props.projectid === projectId
+      );
+    });
+
+    // If delta <= 0, remove any existing fee line
+    if (deltaInCents <= 0) {
+      if (!feeItem) {
+        return;
+      }
+
+      console.log(`${LOG_PREFIX} [FEE] Removing fee line for project`, {
+        projectId,
+        lineKey: feeItem.key,
+        deltaInCents,
+      });
+
+      fetch("/cart/change.js", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: feeItem.key,
+          quantity: 0,
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(() => {
+          // Theme usually re-renders cart; no extra action
+        })
+        .catch((error) => {
+          console.warn(
+            `${LOG_PREFIX} [FEE] Failed to remove fee line for project`,
+            {
+              projectId,
+              error,
+            },
+          );
+        });
+
+      return;
+    }
+
+    const desiredQuantity = deltaInCents;
+
+    if (feeItem && feeItem.quantity === desiredQuantity) {
+      // Already in sync
+      return;
+    }
+
+    const payload = {
+      id: feeVariantId,
+      quantity: desiredQuantity,
+      properties: {
+        is_personalisation_fee: "true",
+        projectid: projectId,
+        editor_total_price_cents: String(editorTotalPriceCents),
+        shopify_line_price_cents: String(shopifyLinePriceCents),
+      },
+    };
+
+    if (!feeItem) {
+      console.log(`${LOG_PREFIX} [FEE] Adding fee line for project`, {
+        projectId,
+        payload,
+      });
+
+      fetch("/cart/add.js", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: [payload],
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(() => {
+          // Reload once so Shopify renders the new fee line in the cart table
+          window.location.reload();
+        })
+        .catch((error) => {
+          console.warn(
+            `${LOG_PREFIX} [FEE] Failed to add fee line for project`,
+            {
+              projectId,
+              error,
+            },
+          );
+        });
+    } else {
+      console.log(`${LOG_PREFIX} [FEE] Updating fee line for project`, {
+        projectId,
+        lineKey: feeItem.key,
+        previousQuantity: feeItem.quantity,
+        desiredQuantity,
+      });
+
+      fetch("/cart/change.js", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: feeItem.key,
+          quantity: desiredQuantity,
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(() => {
+          // Reload once so Shopify renders the updated fee line quantity
+          window.location.reload();
+        })
+        .catch((error) => {
+          console.warn(
+            `${LOG_PREFIX} [FEE] Failed to update fee line for project`,
+            {
+              projectId,
+              error,
+            },
+          );
+        });
+    }
+  }
+
+  function attachMainLineRemoveHandler(cartItem, projectId) {
+    const removeButton = cartItem.querySelector(".cart-items__remove");
+    if (!removeButton) {
+      return;
+    }
+
+    if (removeButton.dataset.editorRemoveAttached === "true") {
+      return;
+    }
+    removeButton.dataset.editorRemoveAttached = "true";
+
+    removeButton.addEventListener("click", (event) => {
+      // Only intercept for main lines (not personalisation fee)
+      if (!projectId || isPersonalisationFeeCartItem(cartItem)) {
+        return;
+      }
+
+      const mainLineKey = getCartItemKey(cartItem);
+      if (!mainLineKey) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      fetchCartState()
+        .then((cartState) => {
+          if (!cartState || !Array.isArray(cartState.items)) {
+            throw new Error("No cart state available");
+          }
+
+          // Look for related fee line for this project
+          const feeItem = cartState.items.find((item) => {
+            const props = item.properties || {};
+            if (
+              props.projectid !== projectId ||
+              props.is_personalisation_fee !== "true"
+            ) {
+              return false;
+            }
+            if (!feeVariantId) {
+              return true;
+            }
+            const variantIdStr = String(item.variant_id || "");
+            return variantIdStr === feeVariantId;
+          });
+
+          const removeMainLine = () =>
+            fetch("/cart/change.js", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                id: mainLineKey,
+                quantity: 0,
+              }),
+            }).then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response.json();
+            });
+
+          if (!feeItem || !feeItem.key) {
+            // Just remove main line
+            return removeMainLine();
+          }
+
+          // First remove fee line, then main line
+          return fetch("/cart/change.js", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: feeItem.key,
+              quantity: 0,
+            }),
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response.json();
+            })
+            .then(() => removeMainLine());
+        })
+        .then(() => {
+          // Refresh cart once both deletions are applied
+          window.location.reload();
+        })
+        .catch((error) => {
+          console.warn(
+            `${LOG_PREFIX} [FEE] Custom remove (main + fee) failed`,
+            {
+              projectId,
+              error,
+            },
+          );
+          // Fallback: let Shopify handle the click normally
+          removeButton.dataset.editorRemoveAttached = "false";
+          removeButton.click();
+        });
+    });
+  }
+
+  function cleanupOrphanPersonalisationFeeLines(cartState) {
+    if (!feeVariantId) {
+      return;
+    }
+    if (!cartState || !Array.isArray(cartState.items)) {
+      return;
+    }
+
+    const mainProjectIds = new Set();
+    /** @type {{key: string, projectId: string}[]} */
+    const feeLines = [];
+
+    cartState.items.forEach((item) => {
+      const props = item.properties || {};
+      const projectId = props.projectid;
+      if (!projectId) {
+        return;
+      }
+
+      if (props.is_personalisation_fee === "true") {
+        if (item.key) {
+          feeLines.push({ key: item.key, projectId });
+        }
+      } else {
+        mainProjectIds.add(projectId);
+      }
+    });
+
+    feeLines.forEach(({ key, projectId }) => {
+      if (mainProjectIds.has(projectId)) {
+        return;
+      }
+
+      console.log(
+        `${LOG_PREFIX} [FEE] Removing orphan personalisation fee line`,
+        {
+          projectId,
+          lineKey: key,
+        },
+      );
+
+      fetch("/cart/change.js", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: key,
+          quantity: 0,
+        }),
+      }).catch((error) => {
+        console.warn(
+          `${LOG_PREFIX} [FEE] Failed to remove orphan personalisation fee line`,
+          {
+            projectId,
+            lineKey: key,
+            error,
+          },
+        );
+      });
+    });
+  }
 
   function applyProjectNameToCartItem(cartItem, projectId, projectName) {
     if (!cartItem || !projectName) {
@@ -297,7 +874,7 @@
     if (projectDetailsCache[projectId]) {
       const cached = projectDetailsCache[projectId];
       applyProjectNameToCartItem(cartItem, projectId, cached.projectName);
-      // Price is kept in cache (cached.totalPrice) for future use but not applied to DOM here
+      // Price / breakdown kept in cache; do not re-fetch
       return;
     }
 
@@ -322,12 +899,16 @@
         }
 
         const project = data.project;
+        const projectResult = project && project.result ? project.result : null;
         const projectTotalPrice =
-          project &&
-          project.result &&
-          Object.prototype.hasOwnProperty.call(project.result, "totalprice")
-            ? project.result.totalprice
+          projectResult &&
+          Object.prototype.hasOwnProperty.call(projectResult, "totalprice")
+            ? projectResult.totalprice
             : null;
+        const breakdown =
+          (projectResult &&
+            (projectResult.breakdown || projectResult.Breakdown)) ||
+          [];
         const projectName =
           project.name ||
           project.projectname ||
@@ -351,8 +932,20 @@
           project,
           projectName,
           totalPrice: projectTotalPrice,
+          breakdown,
         };
         applyProjectNameToCartItem(cartItem, projectId, projectName);
+
+        // Step 1: only adjust properties for Personalisation fee lines
+        if (
+          breakdown.length > 0 &&
+          isPersonalisationFeeCartItem(cartItem)
+        ) {
+          updatePersonalisationFeeProperties(projectId, breakdown);
+        }
+
+        // Compute and sync fee line for this project
+        logFeeDeltaForProject(projectId, projectTotalPrice);
       })
       .catch((error) => {
         console.warn(
@@ -367,18 +960,17 @@
 
   function fetchAndReplaceThumbnail(cartItem, projectId) {
     const img = findThumbnailElement(cartItem);
-    if (!img) {
-      console.warn(`${LOG_PREFIX} Thumbnail element not found`, { projectId });
+    if (img && img.dataset.projectThumbnail === "true") {
       return;
     }
 
-    if (img.dataset.projectThumbnail === "true") {
-      return;
+    if (img) {
+      img.style.opacity = "0.6";
     }
 
-    img.style.opacity = "0.6";
-
-    const apiUrl = `${appUrl}/api/project-thumbnail?projectid=${encodeURIComponent(projectId)}&shop=${encodeURIComponent(shopDomain || "")}`;
+    const apiUrl = `${appUrl}/api/project-thumbnail?projectid=${encodeURIComponent(
+      projectId,
+    )}&shop=${encodeURIComponent(shopDomain || "")}`;
 
     fetch(apiUrl)
       .then((response) => {
@@ -389,12 +981,45 @@
       })
       .then((data) => {
         if (data && data.success && data.thumbnail) {
-          img.src = data.thumbnail;
-          // Remove srcset to prevent browser from using default Shopify images
-          img.removeAttribute("srcset");
-          img.removeAttribute("sizes");
-          img.dataset.projectThumbnail = "true";
-          img.dataset.projectId = projectId;
+          const thumbnailSrc = data.thumbnail;
+
+          // Aynı projectId'ye sahip TÜM satırların ürün görsellerini güncelle
+          const allCartItems = document.querySelectorAll(
+            ".cart-item, .cart__item, [data-cart-item], .line-item, tr.cart-items__table-row",
+          );
+
+          allCartItems.forEach((item) => {
+            const itemProjectId = getProjectIdFromCartItem(item);
+            if (itemProjectId !== projectId) {
+              return;
+            }
+
+            // Ürün görseli hücresini bul
+            const mediaCell =
+              item.querySelector(
+                'td.cart-items__media[headers="productImage"]',
+              ) ||
+              item.querySelector(
+                ".cart-item__media, .cart-item__image, .cart__image, .cart-item__figure",
+              ) ||
+              item;
+
+            let targetImg =
+              mediaCell.querySelector("img") || mediaCell.querySelector("a img");
+
+            if (!targetImg) {
+              targetImg = document.createElement("img");
+              targetImg.alt = "Project thumbnail";
+              mediaCell.appendChild(targetImg);
+            }
+
+            targetImg.src = thumbnailSrc;
+            targetImg.removeAttribute("srcset");
+            targetImg.removeAttribute("sizes");
+            targetImg.dataset.projectThumbnail = "true";
+            targetImg.dataset.projectId = projectId;
+          });
+
           if (!loggedProjects.has(projectId)) {
             loggedProjects.add(projectId);
           }
@@ -410,7 +1035,9 @@
         );
       })
       .finally(() => {
-        img.style.opacity = "1";
+        if (img) {
+          img.style.opacity = "1";
+        }
       });
   }
 
@@ -476,6 +1103,141 @@
     actionsContainer.appendChild(buttonWrapper);
   }
 
+  function adjustPersonalisationFeeCartItem(cartItem) {
+    if (!isPersonalisationFeeCartItem(cartItem)) {
+      return;
+    }
+
+    // Remove quantity selector and remove button
+    const quantityCell = cartItem.querySelector("td.cart-items__quantity");
+    if (quantityCell) {
+      const quantitySelector = quantityCell.querySelector(
+        "cart-quantity-selector-component, .quantity-selector",
+      );
+      if (quantitySelector) {
+        quantitySelector.remove();
+      }
+
+      const removeButton = quantityCell.querySelector(".cart-items__remove");
+      if (removeButton) {
+        removeButton.remove();
+      }
+    }
+
+    // Remove inline "$0.01" price block from details cell
+    const detailsCell =
+      cartItem.querySelector(
+        'td.cart-items__details[headers="productInformation"]',
+      ) ||
+      cartItem.querySelector(
+        ".cart-item__details, .cart-items__details, .cart__info",
+      );
+    if (detailsCell) {
+      const priceLabelSpan = detailsCell.querySelector("span.visually-hidden");
+      const priceWrapperDiv =
+        priceLabelSpan && priceLabelSpan.closest("div");
+
+      if (
+        priceLabelSpan &&
+        priceLabelSpan.textContent.trim().toLowerCase() === "price"
+      ) {
+        if (priceWrapperDiv) {
+          priceWrapperDiv.remove();
+        }
+      }
+
+      // Keep only project ID property under variants
+      const variantsDl = detailsCell.querySelector("dl.cart-items__variants");
+      if (variantsDl) {
+        const propertyDivs =
+          variantsDl.querySelectorAll(".cart-items__properties");
+        propertyDivs.forEach((div) => {
+          const dt = div.querySelector("dt");
+          const label = (dt?.textContent || "")
+            .trim()
+            .toLowerCase()
+            .replace(/:$/, "");
+          if (label === "projectid") {
+            // Optionally normalize label
+            dt.textContent = "Project ID:";
+          } else {
+            div.remove();
+          }
+        });
+      }
+    }
+
+    // Hide cart bubble count (global cart badge)
+    const cartBubble = document.querySelector(
+      '.cart-bubble__text-count[ref="cartBubbleCount"], .cart-bubble__text-count[data-testid="cart-bubble"]',
+    );
+    if (cartBubble) {
+      cartBubble.remove();
+    }
+
+    // Remove "Edit your project" button/actions
+    const editorActions = cartItem.querySelector(".editor-cart-actions");
+    if (editorActions) {
+      editorActions.remove();
+    }
+  }
+
+  function groupPersonalisationFeeRows() {
+    const tableBody =
+      document.querySelector(".cart-items__table tbody") ||
+      document.querySelector("table.cart-items__table tbody") ||
+      document.querySelector("tbody");
+    if (!tableBody) {
+      return;
+    }
+
+    const rows = Array.from(
+      tableBody.querySelectorAll(
+        "tr.cart-items__table-row, tr.cart-item, tr[data-cart-item-key]",
+      ),
+    );
+    if (!rows.length) {
+      return;
+    }
+
+    /** @type {Map<string, HTMLElement[]>} */
+    const mainRowsByProject = new Map();
+    /** @type {{row: HTMLElement, projectId: string}[]} */
+    const feeRows = [];
+
+    rows.forEach((row) => {
+      const projectId = getProjectIdFromCartItem(row);
+      if (!projectId) {
+        return;
+      }
+
+      if (isPersonalisationFeeCartItem(row)) {
+        feeRows.push({ row, projectId });
+      } else {
+        if (!mainRowsByProject.has(projectId)) {
+          mainRowsByProject.set(projectId, []);
+        }
+        mainRowsByProject.get(projectId).push(row);
+      }
+    });
+
+    feeRows.forEach(({ row, projectId }) => {
+      const mainRows = mainRowsByProject.get(projectId);
+      if (!mainRows || mainRows.length === 0) {
+        return;
+      }
+
+      const anchorRow = mainRows[mainRows.length - 1];
+
+      // Eğer zaten anchorRow'un hemen altındaysa, dokunma
+      if (anchorRow.nextElementSibling === row) {
+        return;
+      }
+
+      tableBody.insertBefore(row, anchorRow.nextSibling);
+    });
+  }
+
   function processCartItems() {
     const selectors = [
       ".cart-item",
@@ -504,11 +1266,31 @@
     cartItems.forEach((cartItem) => {
       const projectId = getProjectIdFromCartItem(cartItem);
       if (projectId) {
+        // Cache projectId on the row so we don't lose it when properties change
+        cartItem.setAttribute("data-project-id", projectId);
+
         fetchAndReplaceThumbnail(cartItem, projectId);
-        ensureEditButton(cartItem, projectId);
+
+        if (isPersonalisationFeeCartItem(cartItem)) {
+          adjustPersonalisationFeeCartItem(cartItem);
+        } else {
+          ensureEditButton(cartItem, projectId);
+          attachMainLineRemoveHandler(cartItem, projectId);
+        }
+
         fetchAndApplyProjectDetails(cartItem, projectId);
       }
     });
+
+    // Ensure personalisation fee rows appear directly under their main project rows
+    groupPersonalisationFeeRows();
+
+    // Remove any orphan personalisation fee lines whose main project has been deleted
+    fetchCartState()
+      .then((cartState) => {
+        cleanupOrphanPersonalisationFeeLines(cartState);
+      })
+      .catch(() => {});
   }
 
   function observeCartChanges() {

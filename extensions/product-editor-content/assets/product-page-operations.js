@@ -194,7 +194,7 @@
     const configMetafields = config.variantMetafields;
     if (configMetafields && Object.keys(configMetafields).length > 0) {
       variantMetafieldsMap = configMetafields;
-
+    
       // Also populate variant info map from ShopifyAnalytics if available
       /** @type {any} */
       const shopifyAnalytics = window.ShopifyAnalytics;
@@ -493,10 +493,10 @@
           updateProjectReferenceInput(currentVariantId);
         } else {
           // Remove input if no variant selected
-            const existingInput = document.getElementById("project-reference-input-container");
-            if (existingInput) {
-              existingInput.remove();
-            }
+          const existingInput = document.getElementById("project-reference-input-container");
+          if (existingInput) {
+            existingInput.remove();
+          }
         }
       });
 
@@ -688,7 +688,7 @@
     document.addEventListener("submit", captureSubmit, true);
   }
 
-  
+
   loadEditorSettings()
     .then(() => {
       return loadVariantMetafields();

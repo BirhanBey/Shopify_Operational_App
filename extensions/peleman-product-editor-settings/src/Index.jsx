@@ -522,20 +522,20 @@ function PelemanProductEditorSettings() {
 
             // Update or create metafields
             if (metafields.length > 0) {
-                const response = await query(UPDATE_METAFIELD_MUTATION, {
-                    variables: {
-                        metafields: metafields,
-                    },
-                });
+            const response = await query(UPDATE_METAFIELD_MUTATION, {
+                variables: {
+                    metafields: metafields,
+                },
+            });
 
-                if (response.errors?.length) {
-                    return;
-                }
+            if (response.errors?.length) {
+                return;
+            }
 
-                const userErrors = response.data?.metafieldsSet?.userErrors || [];
-                if (userErrors.length > 0) {
-                    return;
-                }
+            const userErrors = response.data?.metafieldsSet?.userErrors || [];
+            if (userErrors.length > 0) {
+                return;
+            }
             }
 
             // Reload variants to get updated data

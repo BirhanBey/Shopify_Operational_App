@@ -10,6 +10,7 @@
     {
       appUrl: '{{ block.settings.app_url | escape }}',
       shop: '{{ shop.permanent_domain }}',
+      feeVariantId: '{{ block.settings.fee_variant_id | escape }}',
     },
   );
 </script>
@@ -25,6 +26,12 @@
       "id": "app_url",
       "label": "App URL",
       "info": "Your app backend URL (e.g., https://your-app.ngrok.io)"
+    },
+    {
+      "type": "text",
+      "id": "fee_variant_id",
+      "label": "Fee product variant ID",
+      "info": "Variant ID of the personalisation fee product (e.g., 1234567890 or gid://shopify/ProductVariant/1234567890)"
     }
   ]
 }
