@@ -46,6 +46,48 @@
 
   let editorSettings = null;
   let variantInfoMap = {};
+  const productEditorSettingRaw =
+    typeof config.productEditorSetting === "string"
+      ? config.productEditorSetting.trim()
+      : "";
+
+  console.log(`${LOG_PREFIX} [DEBUG] Product editor setting raw value`, {
+    productEditorSettingRaw,
+  });
+
+  function isPersonalisationDropdownEnabled() {
+    if (!productEditorSettingRaw) {
+      console.log(
+        `${LOG_PREFIX} [DEBUG] No product editor setting metafield value found; personalisation dropdown disabled`,
+      );
+      return false;
+    }
+
+    // Definition (custom.product_editor_type) options:
+    // - "No Customisation"
+    // - "Peleman Image Editor"
+    const normalized = productEditorSettingRaw.trim().toLowerCase();
+
+    if (normalized === "peleman image editor") {
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Product editor setting is "Peleman Image Editor"; personalisation dropdown enabled`,
+      );
+      return true;
+    }
+
+    if (normalized === "no customisation") {
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Product editor setting is "No Customisation"; personalisation dropdown disabled`,
+      );
+      return false;
+    }
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Product editor setting is an unexpected value; personalisation dropdown disabled`,
+      { normalized },
+    );
+    return false;
+  }
 
   function loadEditorSettings() {
     const url = `${appUrl.replace(/\/$/, "")}/api/editor-settings?shop=${encodeURIComponent(shopDomain || "")}`;
@@ -339,6 +381,222 @@
     return inputContainer;
   }
 
+  function createPersonalisationDropdown() {
+    const existing =
+      document.getElementById("personalisation-dropdown-container");
+    if (existing) {
+      return existing;
+    }
+
+    const container = document.createElement("div");
+    container.id = "personalisation-dropdown-container";
+    container.style.cssText = `
+      margin-top: 0.75rem;
+      margin-bottom: 0.75rem;
+      display: block;
+      width: 100%;
+    `;
+
+    const label = document.createElement("label");
+    label.setAttribute("for", "personalisation-select");
+    label.textContent = "Personalisation";
+    label.style.cssText = `
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    `;
+
+    const select = document.createElement("select");
+    select.id = "personalisation-select";
+    select.name = "properties[personalisation_mode]";
+    select.style.cssText = `
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      display: block;
+      box-sizing: border-box;
+    `;
+
+    const options = [
+      { value: "", label: "Select personalisation option" },
+      { value: "design_later", label: "Design Later" },
+      { value: "design_online", label: "Design Online" },
+      { value: "design_for_me", label: "Design For Me" },
+    ];
+
+    options.forEach((opt) => {
+      const optionEl = document.createElement("option");
+      optionEl.value = opt.value;
+      optionEl.textContent = opt.label;
+      select.appendChild(optionEl);
+    });
+
+    container.appendChild(label);
+    container.appendChild(select);
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Created personalisation dropdown container`,
+    );
+
+    return container;
+  }
+
+  function getCurrentPersonalisationMode() {
+    const select = /** @type {HTMLSelectElement | null} */ (
+      document.getElementById("personalisation-select")
+    );
+    const mode = (select && select.value) || "";
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Current personalisation mode`,
+      { mode },
+    );
+
+    return mode;
+  }
+
+  function updateAddToCartButtonLabelForMode(form, mode) {
+    if (!form) {
+      return;
+    }
+
+    let addToCartButton = form.querySelector('button[name="add"]');
+    if (!addToCartButton) {
+      addToCartButton = form.querySelector('button[type="submit"]');
+    }
+    if (!addToCartButton) {
+      addToCartButton = form.querySelector(".add-to-cart-button");
+    }
+    if (!addToCartButton) {
+      addToCartButton = form.querySelector(
+        'button[id*="ProductSubmitButton"]',
+      );
+    }
+    if (!addToCartButton) {
+      const productFormComponent = form.closest("product-form-component");
+      if (productFormComponent) {
+        addToCartButton = productFormComponent.querySelector(
+          'button[name="add"], button[type="submit"]',
+        );
+      }
+    }
+
+    // Fallback: try to locate button inside add-to-cart-component globally.
+    if (!addToCartButton) {
+      addToCartButton = document.querySelector(
+        "add-to-cart-component button[name='add'], add-to-cart-component button[type='submit'], add-to-cart-component .product-form__submit, add-to-cart-component button",
+      );
+      if (addToCartButton) {
+        console.log(
+          `${LOG_PREFIX} [DEBUG] Found add to cart button via add-to-cart-component fallback for personalisation mode label update`,
+        );
+      }
+    }
+
+    if (!addToCartButton) {
+      console.warn(
+        `${LOG_PREFIX} [DEBUG] Could not find add to cart button to update label for personalisation mode`,
+      );
+      return;
+    }
+
+    const button = /** @type {HTMLButtonElement} */ (addToCartButton);
+
+    // In many Shopify themes, the visible label is inside an inner span
+    // like <span class="add-to-cart-text__content">Add to cart</span>
+    // We try to update that first; if not found, we fall back to button textContent.
+    const labelSpan =
+      button.querySelector(".add-to-cart-text__content") ||
+      button.querySelector(".add-to-cart-text") ||
+      null;
+
+    const labelTarget = /** @type {HTMLElement} */ (
+      (labelSpan || button)
+    );
+
+    if (!labelTarget.dataset.originalText) {
+      labelTarget.dataset.originalText = labelTarget.textContent || "";
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Stored original add to cart label`,
+        {
+          usedInnerSpan: !!labelSpan,
+          originalText: labelTarget.dataset.originalText,
+        },
+      );
+    }
+
+    if (mode === "design_online") {
+      labelTarget.textContent = "Personalise Now";
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Updated add to cart button label for mode "design_online"`,
+        { usedInnerSpan: !!labelSpan },
+      );
+    } else {
+      const original = labelTarget.dataset.originalText || "Add to cart";
+      labelTarget.textContent = original;
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Restored add to cart button label for non design_online mode`,
+        { usedInnerSpan: !!labelSpan },
+      );
+    }
+  }
+
+  function ensurePersonalisationDropdown(anchorElement) {
+    if (!isPersonalisationDropdownEnabled()) {
+      return;
+    }
+    if (!anchorElement || !anchorElement.parentNode) {
+      console.warn(
+        `${LOG_PREFIX} [DEBUG] Cannot attach personalisation dropdown, missing anchor element`,
+      );
+      return;
+    }
+
+    const existing =
+      document.getElementById("personalisation-dropdown-container");
+    if (existing) {
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Personalisation dropdown already present; skipping re-attach`,
+      );
+      return;
+    }
+
+    const dropdown = createPersonalisationDropdown();
+    anchorElement.parentNode.insertBefore(dropdown, anchorElement.nextSibling);
+
+    // Attach change listener to keep button label in sync with mode
+    const select = /** @type {HTMLSelectElement | null} */ (
+      dropdown.querySelector("#personalisation-select")
+    );
+    const form =
+      anchorElement.closest("form[action*='/cart/add']") ||
+      document.querySelector("form[action*='/cart/add']");
+
+    if (select && form) {
+      const handleChange = () => {
+        const mode = select.value || "";
+        console.log(
+          `${LOG_PREFIX} [DEBUG] Personalisation dropdown changed`,
+          { mode },
+        );
+        updateAddToCartButtonLabelForMode(form, mode);
+      };
+
+      select.addEventListener("change", handleChange);
+      // Initial sync
+      handleChange();
+    } else {
+      console.warn(
+        `${LOG_PREFIX} [DEBUG] Could not wire personalisation dropdown events (missing select or form)`,
+      );
+    }
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Attached personalisation dropdown below project reference input`,
+    );
+  }
+
   // Show/hide project reference input based on selected variant
   function updateProjectReferenceInput(selectedVariantId) {
     // Try to find the correct form - look for the one with add to cart button
@@ -353,11 +611,13 @@
     }
 
     // Remove existing input if present
-    const existingInput = document.getElementById("project-reference-input-container");
+    const existingInput = document.getElementById(
+      "project-reference-input-container",
+    );
     if (existingInput) {
       existingInput.remove();
     }
-
+    
     // Check if selected variant has use_project_reference enabled
     // Try both numeric ID and GID format
     const gidFormat = selectedVariantId.includes('/') 
@@ -366,11 +626,7 @@
     
     let variantData = variantMetafieldsMap[selectedVariantId] || variantMetafieldsMap[gidFormat];
     
-    const shouldShow = variantData?.useProjectReference === true;
-
-    if (!shouldShow) {
-      return;
-    }
+    const shouldShowProjectReference = variantData?.useProjectReference === true;
 
     // Find the position to insert input (between variant form and add to cart button)
     // Try multiple selectors for add to cart button
@@ -434,38 +690,81 @@
       }
     }
 
-    if (buyButtonsBlock && buyButtonsBlock.parentNode) {
-      // Best option: insert before buy-buttons-block span
-      const inputContainer = createProjectReferenceInput();
-      buyButtonsBlock.parentNode.insertBefore(inputContainer, buyButtonsBlock);
-    } else if (quantitySelector && quantitySelector.parentNode) {
-      // Fallback: insert before quantity-selector-component
-      const inputContainer = createProjectReferenceInput();
-      quantitySelector.parentNode.insertBefore(inputContainer, quantitySelector);
-    } else if (productFormButtons) {
-      // Fallback: insert at the beginning of product-form-buttons div (before quantity selector and add to cart)
-      const inputContainer = createProjectReferenceInput();
-      productFormButtons.insertBefore(inputContainer, productFormButtons.firstChild);
-    } else if (addToCartButton && addToCartButton.parentNode) {
-      const inputContainer = createProjectReferenceInput();
-      
-      // Insert before add to cart button's parent (the span containing the button)
-      const buttonParent = addToCartButton.closest('span') || addToCartButton.parentNode;
-      buttonParent.parentNode.insertBefore(inputContainer, buttonParent);
-      
-    } else {
-      console.warn(`${LOG_PREFIX} [DEBUG] Add to cart button and container not found, using form fallback`);
-      // Last fallback: find product-form-component and append there, or append to form
-      const productFormComponent = form.closest('product-form-component');
-      if (productFormComponent) {
+    let projectReferenceAnchor = null;
+
+    if (shouldShowProjectReference) {
+      if (buyButtonsBlock && buyButtonsBlock.parentNode) {
+        // Best option: insert before buy-buttons-block span
         const inputContainer = createProjectReferenceInput();
-        // Try to insert before the form
-        productFormComponent.insertBefore(inputContainer, form);
+        buyButtonsBlock.parentNode.insertBefore(inputContainer, buyButtonsBlock);
+        projectReferenceAnchor = inputContainer;
+      } else if (quantitySelector && quantitySelector.parentNode) {
+        // Fallback: insert before quantity-selector-component
+        const inputContainer = createProjectReferenceInput();
+        quantitySelector.parentNode.insertBefore(
+          inputContainer,
+          quantitySelector,
+        );
+        projectReferenceAnchor = inputContainer;
+      } else if (productFormButtons) {
+        // Fallback: insert at the beginning of product-form-buttons div (before quantity selector and add to cart)
+        const inputContainer = createProjectReferenceInput();
+        productFormButtons.insertBefore(
+          inputContainer,
+          productFormButtons.firstChild,
+        );
+        projectReferenceAnchor = inputContainer;
+      } else if (addToCartButton && addToCartButton.parentNode) {
+        const inputContainer = createProjectReferenceInput();
+
+        // Insert before add to cart button's parent (the span containing the button)
+        const buttonParent =
+          addToCartButton.closest("span") || addToCartButton.parentNode;
+        buttonParent.parentNode.insertBefore(inputContainer, buttonParent);
+        projectReferenceAnchor = inputContainer;
       } else {
-        const inputContainer = createProjectReferenceInput();
-        form.appendChild(inputContainer);
+        console.warn(
+          `${LOG_PREFIX} [DEBUG] Add to cart button and container not found, using form fallback for project reference`,
+        );
+        // Last fallback: find product-form-component and append there, or append to form
+        const productFormComponent = form.closest("product-form-component");
+        if (productFormComponent) {
+          const inputContainer = createProjectReferenceInput();
+          // Try to insert before the form
+          productFormComponent.insertBefore(inputContainer, form);
+          projectReferenceAnchor = inputContainer;
+        } else {
+          const inputContainer = createProjectReferenceInput();
+          form.appendChild(inputContainer);
+          projectReferenceAnchor = inputContainer;
+        }
       }
+    } else {
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Variant metafields indicate project reference is disabled for this variant`,
+        { selectedVariantId },
+      );
     }
+
+    // Personalisation dropdown is controlled ONLY by product metafield,
+    // but we try to position it under project reference if available.
+    const personalisationAnchor =
+      projectReferenceAnchor ||
+      buyButtonsBlock ||
+      quantitySelector ||
+      productFormButtons ||
+      addToCartButton ||
+      form;
+
+    ensurePersonalisationDropdown(personalisationAnchor);
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Project reference input and personalisation dropdown update complete for variant`,
+      {
+        selectedVariantId,
+        shouldShowProjectReference,
+      },
+    );
   }
 
   // Setup variant change listener
@@ -567,6 +866,34 @@
         return false;
       }
 
+      // If personalisation dropdown is not enabled for this product,
+      // or the user explicitly selected "Design For Me",
+      // do NOT intercept; let native add to cart work.
+      const dropdownEnabled = isPersonalisationDropdownEnabled();
+      const personalisationMode = getCurrentPersonalisationMode();
+
+      console.log(
+        `${LOG_PREFIX} [DEBUG] Evaluating add to cart flow`,
+        {
+          dropdownEnabled,
+          personalisationMode,
+        },
+      );
+
+      if (!dropdownEnabled) {
+        console.log(
+          `${LOG_PREFIX} [DEBUG] Personalisation dropdown disabled for this product; using native add to cart`,
+        );
+        return false;
+      }
+
+      if (personalisationMode === "design_for_me") {
+        console.log(
+          `${LOG_PREFIX} [DEBUG] Personalisation mode "design_for_me"; skipping editor flow and using native add to cart`,
+        );
+        return false;
+      }
+
       if (isSubmitting) {
         return true;
       }
@@ -623,6 +950,8 @@
       const templateId = variantMetafields.templateId || null;
       const materialId = variantMetafields.materialId || null;
 
+      // For "design_online" and any other modes (including empty and "design_later"
+      // for now), we use the editor flow.
       callCreateProjectAPI(cartAddBaseUrl, { 
         variantSku: sku, 
         templateId: templateId,

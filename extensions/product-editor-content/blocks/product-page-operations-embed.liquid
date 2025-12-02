@@ -33,6 +33,14 @@
     {% endfor %}
   {% endif %}
 
+  // Product-level editor setting metafield (used for conditional UI on product page)
+  // Definition: custom.product_editor_type
+  {% assign product_editor_settings_metafield = product.metafields.custom.product_editor_type %}
+  var productEditorSetting = null;
+  {% if product_editor_settings_metafield and product_editor_settings_metafield.value %}
+    productEditorSetting = {{ product_editor_settings_metafield.value | json }};
+  {% endif %}
+
   window.__EDITOR_PRODUCT_CONFIG__ = Object.assign(
     {},
     window.__EDITOR_PRODUCT_CONFIG__,
@@ -40,6 +48,7 @@
       appUrl: '{{ block.settings.app_url | escape }}',
       shop: '{{ shop.permanent_domain }}',
       variantMetafields: variantMetafieldsMap,
+      productEditorSetting: productEditorSetting,
     },
   );
   window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;

@@ -339,6 +339,24 @@
       quantityCell.appendChild(container);
     });
   }
+
+  function applyProjectNameToAllCartItems(projectId, projectName) {
+    if (!projectId || !projectName) {
+      return;
+    }
+
+    const allCartItems = document.querySelectorAll(
+      ".cart-item, .cart__item, [data-cart-item], .line-item, tr.cart-items__table-row",
+    );
+
+    allCartItems.forEach((item) => {
+      const itemProjectId = getProjectIdFromCartItem(item);
+      if (itemProjectId !== projectId) {
+        return;
+      }
+      applyProjectNameToCartItem(item, projectId, projectName);
+    });
+  }
   function findThumbnailElement(cartItem) {
     // Try specific selectors first
     for (const selector of thumbnailSelectors) {
@@ -386,8 +404,13 @@
 
   const loggedProjects = new Set();
   const projectDetailsCache = {};
+  const projectDetailsRequestCache = {};
 
   let cartStatePromise = null;
+
+  function resetCartState() {
+    cartStatePromise = null;
+  }
 
   function fetchCartState() {
     if (cartStatePromise) {
@@ -467,14 +490,22 @@
 
         const deltaInCents = editorPriceCents - linePriceCents;
 
-        console.log(`${LOG_PREFIX} [FEE] Fee delta for project`, {
-          projectId,
-          editorTotalPriceCents: editorPriceCents,
-          shopifyLinePriceCents: linePriceCents,
-          deltaInCents,
-        });
-
         const existing = projectDetailsCache[projectId] || {};
+
+        const isSameAsLast =
+          existing.editorTotalPriceCents === editorPriceCents &&
+          existing.shopifyLinePriceCents === linePriceCents &&
+          existing.deltaInCents === deltaInCents;
+
+        if (!isSameAsLast) {
+          console.log(`${LOG_PREFIX} [FEE] Fee delta for project`, {
+            projectId,
+            editorTotalPriceCents: editorPriceCents,
+            shopifyLinePriceCents: linePriceCents,
+            deltaInCents,
+          });
+        }
+
         projectDetailsCache[projectId] = {
           ...existing,
           editorTotalPriceCents: editorPriceCents,
@@ -873,16 +904,42 @@
 
     if (projectDetailsCache[projectId]) {
       const cached = projectDetailsCache[projectId];
-      applyProjectNameToCartItem(cartItem, projectId, cached.projectName);
-      // Price / breakdown kept in cache; do not re-fetch
+
+      applyProjectNameToAllCartItems(projectId, cached.projectName);
+
+      // Re-apply UI customisations for cached data on all fee rows
+      if (
+        cached.breakdown &&
+        Array.isArray(cached.breakdown) &&
+        cached.breakdown.length > 0
+      ) {
+        updatePersonalisationFeeProperties(projectId, cached.breakdown);
+      }
+
+      // Recompute and sync fee line in case quantities/prices changed
+      if (cached.totalPrice != null) {
+        logFeeDeltaForProject(projectId, cached.totalPrice);
+      }
+
       return;
     }
+
+    if (projectDetailsRequestCache[projectId]) {
+      // Request already in-flight for this project; results will be cached and
+      // applied on subsequent passes via projectDetailsCache.
+      return;
+    }
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Fetching project details for cart item`,
+      { projectId },
+    );
 
     const detailsUrl = `${appUrl}/api/project-details?projectid=${encodeURIComponent(
       projectId,
     )}&shop=${encodeURIComponent(shopDomain || "")}`;
 
-    fetch(detailsUrl)
+    projectDetailsRequestCache[projectId] = fetch(detailsUrl)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -934,13 +991,11 @@
           totalPrice: projectTotalPrice,
           breakdown,
         };
-        applyProjectNameToCartItem(cartItem, projectId, projectName);
+        applyProjectNameToAllCartItems(projectId, projectName);
 
-        // Step 1: only adjust properties for Personalisation fee lines
-        if (
-          breakdown.length > 0 &&
-          isPersonalisationFeeCartItem(cartItem)
-        ) {
+        // Always adjust properties for Personalisation fee lines (function
+        // itself filters only fee rows for this project)
+        if (breakdown.length > 0) {
           updatePersonalisationFeeProperties(projectId, breakdown);
         }
 
@@ -955,6 +1010,9 @@
             error,
           },
         );
+      })
+      .finally(() => {
+        delete projectDetailsRequestCache[projectId];
       });
   }
 
@@ -1115,12 +1173,17 @@
         "cart-quantity-selector-component, .quantity-selector",
       );
       if (quantitySelector) {
-        quantitySelector.remove();
+        // Do not remove from DOM (theme JS relies on it); just hide it visually
+        quantitySelector.style.display = "none";
+        quantitySelector.setAttribute("data-editor-hidden", "true");
       }
 
       const removeButton = quantityCell.querySelector(".cart-items__remove");
       if (removeButton) {
-        removeButton.remove();
+        // Do not remove from DOM; disable and hide it
+        removeButton.style.display = "none";
+        removeButton.disabled = true;
+        removeButton.setAttribute("data-editor-hidden", "true");
       }
     }
 
@@ -1165,14 +1228,6 @@
           }
         });
       }
-    }
-
-    // Hide cart bubble count (global cart badge)
-    const cartBubble = document.querySelector(
-      '.cart-bubble__text-count[ref="cartBubbleCount"], .cart-bubble__text-count[data-testid="cart-bubble"]',
-    );
-    if (cartBubble) {
-      cartBubble.remove();
     }
 
     // Remove "Edit your project" button/actions
@@ -1263,23 +1318,50 @@
       return;
     }
 
+    /** @type {Map<string, HTMLElement>} */
+    const primaryCartItemByProjectId = new Map();
+
     cartItems.forEach((cartItem) => {
       const projectId = getProjectIdFromCartItem(cartItem);
-      if (projectId) {
-        // Cache projectId on the row so we don't lose it when properties change
-        cartItem.setAttribute("data-project-id", projectId);
-
-        fetchAndReplaceThumbnail(cartItem, projectId);
-
-        if (isPersonalisationFeeCartItem(cartItem)) {
-          adjustPersonalisationFeeCartItem(cartItem);
-        } else {
-          ensureEditButton(cartItem, projectId);
-          attachMainLineRemoveHandler(cartItem, projectId);
-        }
-
-        fetchAndApplyProjectDetails(cartItem, projectId);
+      if (!projectId) {
+        return;
       }
+
+      // Cache projectId on the row so we don't lose it when properties change
+      cartItem.setAttribute("data-project-id", projectId);
+
+      const isFee = isPersonalisationFeeCartItem(cartItem);
+
+      // Track a primary cart item per projectId (prefer non-fee rows)
+      const existingPrimary = primaryCartItemByProjectId.get(projectId);
+      if (!existingPrimary) {
+        primaryCartItemByProjectId.set(projectId, cartItem);
+      } else if (
+        isFee &&
+        !isPersonalisationFeeCartItem(existingPrimary)
+      ) {
+        // keep existing primary (non-fee) if current is fee
+      } else if (
+        !isFee &&
+        isPersonalisationFeeCartItem(existingPrimary)
+      ) {
+        // replace primary if previous was fee but this is non-fee
+        primaryCartItemByProjectId.set(projectId, cartItem);
+      }
+
+      fetchAndReplaceThumbnail(cartItem, projectId);
+
+      if (isFee) {
+        adjustPersonalisationFeeCartItem(cartItem);
+      } else {
+        ensureEditButton(cartItem, projectId);
+        attachMainLineRemoveHandler(cartItem, projectId);
+      }
+    });
+
+    // Fetch and apply project details once per projectId (avoids duplicate logs and requests)
+    primaryCartItemByProjectId.forEach((primaryItem, projectId) => {
+      fetchAndApplyProjectDetails(primaryItem, projectId);
     });
 
     // Ensure personalisation fee rows appear directly under their main project rows
@@ -1293,6 +1375,8 @@
       .catch(() => {});
   }
 
+  let cartMutationTimeout = null;
+
   function observeCartChanges() {
     const targets = [
       document.querySelector(".cart"),
@@ -1302,19 +1386,18 @@
 
     targets.forEach((target) => {
       const observer = new MutationObserver((mutations) => {
-        if (
-          mutations.some((mutation) =>
-            Array.from(mutation.addedNodes).some(
-              (node) =>
-                node.nodeType === 1 &&
-                (node.classList?.contains("cart-item") ||
-                  node.classList?.contains("cart__item") ||
-                  node.querySelector?.(".cart-item, .cart__item")),
-            ),
-          )
-        ) {
-          processCartItems();
+        if (!mutations.some((mutation) => mutation.type === "childList")) {
+          return;
         }
+
+        if (cartMutationTimeout) {
+          clearTimeout(cartMutationTimeout);
+        }
+
+        cartMutationTimeout = setTimeout(() => {
+          resetCartState();
+          processCartItems();
+        }, 50);
       });
 
       observer.observe(target, { childList: true, subtree: true });
@@ -1326,8 +1409,14 @@
       // handled per button
     });
     processCartItems();
-    document.addEventListener("cart:updated", processCartItems);
-    document.addEventListener("cart:refresh", processCartItems);
+    document.addEventListener("cart:updated", () => {
+      resetCartState();
+      processCartItems();
+    });
+    document.addEventListener("cart:refresh", () => {
+      resetCartState();
+      processCartItems();
+    });
     observeCartChanges();
   }
 
