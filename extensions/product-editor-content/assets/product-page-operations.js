@@ -419,10 +419,10 @@
     `;
 
     const options = [
-      { value: "", label: "Select personalisation option" },
-      { value: "design_later", label: "Design Later" },
-      { value: "design_online", label: "Design Online" },
+      // { value: "", label: "Select personalisation option" },
       { value: "design_for_me", label: "Design For Me" },
+      { value: "design_online", label: "Design Online" },
+      { value: "design_later", label: "Design Later" },
     ];
 
     options.forEach((opt) => {
@@ -595,6 +595,26 @@
     console.log(
       `${LOG_PREFIX} [DEBUG] Attached personalisation dropdown below project reference input`,
     );
+  }
+
+  function hideAcceleratedCheckoutBlock() {
+
+    //hide accelerated checkout button blockon product frontend page
+    const candidates = document.querySelectorAll(
+      'div.accelerated-checkout-block[ref="acceleratedCheckoutButtonContainer"], div.accelerated-checkout-block',
+    );
+
+    if (!candidates || candidates.length === 0) {
+      console.log(
+        `${LOG_PREFIX} [DEBUG] No accelerated checkout block found to hide`,
+      );
+      return;
+    }
+
+    candidates.forEach((el) => {
+      /** @type {HTMLElement} */ (el).style.display = "none";
+      el.setAttribute("data-editor-hidden", "true");
+    });
   }
 
   // Show/hide project reference input based on selected variant
@@ -962,11 +982,6 @@
           const cartAddUrl = buildCartAddUrl(variantId, quantity, projectId, projectReference);
 
           const editorUrl = buildEditorUrl(projectId, cartAddUrl, sku);
-
-          // Show an alert with projectId, templateId, and SKU for debug purposes before redirecting
-          alert(
-            `Project Created!\n\nProject ID: ${projectId}\n\nSKU: ${sku || "N/A"}\n\nRedirecting to editor...`,
-          );
           redirectToEditor(editorUrl);
         })
         .catch((error) => {
@@ -1025,6 +1040,7 @@
     .then(() => {
       setupVariantChangeListener();
       setupAddToCartListener();
+      hideAcceleratedCheckoutBlock();
     })
     .catch((error) => {
       console.error(`${LOG_PREFIX} [DEBUG] Failed to initialize:`, error);
