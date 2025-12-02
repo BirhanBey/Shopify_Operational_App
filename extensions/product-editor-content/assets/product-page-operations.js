@@ -419,7 +419,7 @@
     `;
 
     const options = [
-      // { value: "", label: "Select personalisation option" },
+      { value: "", label: "Select personalisation option" },
       { value: "design_for_me", label: "Design For Me" },
       { value: "design_online", label: "Design Online" },
       { value: "design_later", label: "Design Later" },
@@ -598,19 +598,14 @@
   }
 
   function hideAcceleratedCheckoutBlock() {
-
-    //hide accelerated checkout button blockon product frontend page
-    const candidates = document.querySelectorAll(
-      'div.accelerated-checkout-block[ref="acceleratedCheckoutButtonContainer"], div.accelerated-checkout-block',
-    );
-
+    //hide accelerated checkout button block on product frontend page
+    const candidates = document.querySelectorAll("div.accelerated-checkout-block");
+  
     if (!candidates || candidates.length === 0) {
-      console.log(
-        `${LOG_PREFIX} [DEBUG] No accelerated checkout block found to hide`,
-      );
+      console.log(`${LOG_PREFIX} [DEBUG] No accelerated checkout block found to hide`);
       return;
     }
-
+  
     candidates.forEach((el) => {
       /** @type {HTMLElement} */ (el).style.display = "none";
       el.setAttribute("data-editor-hidden", "true");
@@ -1046,4 +1041,5 @@
       console.error(`${LOG_PREFIX} [DEBUG] Failed to initialize:`, error);
     });
 })();
+
 
