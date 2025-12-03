@@ -914,6 +914,7 @@
         cached.breakdown.length > 0
       ) {
         updatePersonalisationFeeProperties(projectId, cached.breakdown);
+        hideProjectQuantityInputForProject(projectId);
       }
 
       // Recompute and sync fee line in case quantities/prices changed
@@ -997,6 +998,7 @@
         // itself filters only fee rows for this project)
         if (breakdown.length > 0) {
           updatePersonalisationFeeProperties(projectId, breakdown);
+          hideProjectQuantityInputForProject(projectId);
         }
 
         // Compute and sync fee line for this project
@@ -1235,6 +1237,101 @@
     if (editorActions) {
       editorActions.remove();
     }
+  }
+
+  function hideProjectQuantityInputForProject(projectId) {
+    if (!projectId) {
+      return;
+    }
+
+    const allCartItems = document.querySelectorAll(
+      ".cart-item, .cart__item, [data-cart-item], .line-item, tr.cart-items__table-row",
+    );
+
+    allCartItems.forEach((cartItem) => {
+      const itemProjectId = getProjectIdFromCartItem(cartItem);
+      if (!itemProjectId || itemProjectId !== projectId) {
+        return;
+      }
+
+      // Do not touch personalisation fee rows here; they have their own adjustments
+      if (isPersonalisationFeeCartItem(cartItem)) {
+        return;
+      }
+
+      const quantityCell =
+        cartItem.querySelector("td.cart-items__quantity") ||
+        cartItem.querySelector(".cart-items__quantity") ||
+        cartItem.querySelector(".cart-item__quantity") ||
+        cartItem.querySelector(".cart__quantity");
+
+      if (!quantityCell) {
+        return;
+      }
+
+      const quantitySelector =
+        quantityCell.querySelector(
+          "cart-quantity-selector-component, quantity-selector-component, .quantity-selector",
+        ) || quantityCell.querySelector("input[name='updates[]'], input[name='quantity']");
+
+      if (!quantitySelector) {
+        return;
+      }
+
+      // Hide visually but do not remove from DOM to avoid conflicts with theme JS
+      /** @type {HTMLElement} */ (quantitySelector).style.display = "none";
+      quantitySelector.setAttribute("data-editor-hidden", "true");
+
+      const quantityInput = quantitySelector.querySelector("input");
+      if (quantityInput) {
+        quantityInput.disabled = true;
+      }
+
+      // Restyle remove button to visually match the "Edit your project" button
+      const removeButton =
+        quantityCell.querySelector(".cart-items__remove") ||
+        quantityCell.querySelector("button[name='remove'], button[data-cart-remove]");
+
+      if (removeButton) {
+        /** @type {HTMLElement} */ (removeButton).style.display = "inline-flex";
+        Object.assign(/** @type {HTMLElement} */ (removeButton).style, {
+          alignItems: "center",
+          gap: "6px",
+          padding: "0 60px",
+          backgroundColor: "#2D2A6C",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "13px",
+          textTransform: "none",
+        });
+
+        // Hide existing SVG icon and show a text label instead
+        const iconSvg = removeButton.querySelector("svg");
+        if (iconSvg) {
+          /** @type {HTMLElement} */ (iconSvg).style.display = "none";
+        }
+
+        // Ensure a visible text label "Delete" exists
+        let visibleLabel = removeButton.querySelector(
+          ".editor-remove-label",
+        );
+        if (!visibleLabel) {
+          visibleLabel = document.createElement("span");
+          visibleLabel.className = "editor-remove-label";
+          visibleLabel.textContent = "Delete";
+          removeButton.appendChild(visibleLabel);
+        } else {
+          visibleLabel.textContent = "Delete";
+        }
+      }
+
+      // console.log(
+      //   `${LOG_PREFIX} [DEBUG] Quantity input hidden for project with breakdown`,
+      //   { projectId },
+      // );
+    });
   }
 
   function groupPersonalisationFeeRows() {
