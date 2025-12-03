@@ -244,6 +244,11 @@
   }
 
   const thumbnailSelectors = [
+    // Prefer our injected/editor thumbnails first
+    "img[data-project-thumbnail]",
+    ".cart-items__media-image",
+    "td.cart-items__media img",
+    // Then common theme image locations
     "img.cart-item__image",
     "img.cart__image",
     ".cart-item__image img",
@@ -390,19 +395,30 @@
       return img;
     }
 
-    // Last resort: log the cart item structure for debugging
-    console.warn(
-      `${LOG_PREFIX} No thumbnail found, cart item structure:`,
-      {
-        projectId: getProjectIdFromCartItem(cartItem),
-        className: cartItem.className,
-        innerHTML: cartItem.innerHTML.substring(0, 500),
-      },
-    );
+    // If this is a personalisation fee row, skip logging completely.
+    // Theme often renders fee rows without thumbnails; we inject our own later.
+    if (isPersonalisationFeeCartItem(cartItem)) {
+      return null;
+    }
+
+    // Last resort: log the cart item structure for debugging, but only once per project
+    const projectId = getProjectIdFromCartItem(cartItem) || "__no_project__";
+    if (!thumbnailWarningProjects.has(projectId)) {
+      thumbnailWarningProjects.add(projectId);
+      console.warn(
+        `${LOG_PREFIX} No thumbnail found, cart item structure:`,
+        {
+          projectId,
+          className: cartItem.className,
+          innerHTML: cartItem.innerHTML.substring(0, 500),
+        },
+      );
+    }
     return null;
   }
 
   const loggedProjects = new Set();
+  const thumbnailWarningProjects = new Set();
   const projectDetailsCache = {};
   const projectDetailsRequestCache = {};
 
@@ -444,8 +460,8 @@
     return fetchCartState()
       .then((cartState) => {
         if (!cartState || !Array.isArray(cartState.items)) {
-          return;
-        }
+      return;
+    }
 
         const mainItem = cartState.items.find((item) => {
           const props = item.properties || {};
@@ -1025,7 +1041,7 @@
     }
 
     if (img) {
-      img.style.opacity = "0.6";
+    img.style.opacity = "0.6";
     }
 
     const apiUrl = `${appUrl}/api/project-thumbnail?projectid=${encodeURIComponent(
@@ -1096,7 +1112,7 @@
       })
       .finally(() => {
         if (img) {
-          img.style.opacity = "1";
+        img.style.opacity = "1";
         }
       });
   }
@@ -1282,7 +1298,16 @@
       /** @type {HTMLElement} */ (quantitySelector).style.display = "none";
       quantitySelector.setAttribute("data-editor-hidden", "true");
 
-      const quantityInput = quantitySelector.querySelector("input");
+      // quantitySelector can be a wrapper element OR the input itself.
+      // If it's already an input, disable it directly; otherwise look for a nested input.
+      /** @type {HTMLInputElement | null} */
+      let quantityInput = null;
+      if (quantitySelector.tagName === "INPUT") {
+        quantityInput = /** @type {HTMLInputElement} */ (quantitySelector);
+      } else {
+        quantityInput = quantitySelector.querySelector("input");
+      }
+
       if (quantityInput) {
         quantityInput.disabled = true;
       }
@@ -1446,7 +1471,7 @@
         primaryCartItemByProjectId.set(projectId, cartItem);
       }
 
-      fetchAndReplaceThumbnail(cartItem, projectId);
+        fetchAndReplaceThumbnail(cartItem, projectId);
 
       if (isFee) {
         adjustPersonalisationFeeCartItem(cartItem);
