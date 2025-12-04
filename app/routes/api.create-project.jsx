@@ -171,17 +171,16 @@ function generateRequestBody(editorSettings, overrideData = {}) {
 
 /**
  * Build editor API URL
+ * designlater must NOT be hardcoded here. It is handled via:
+ * - generateRequestBody(...) which adds designlater to requestBody when needed
+ * - flattenObject(...) which converts requestBody into query parameters
  */
 function buildEditorApiUrl(editorDomain) {
     const endpoint = "/editor/api/createprojectAPI.php";
-    const desinglater = "designlater=true";
     const baseUrl = editorDomain.endsWith("/")
         ? editorDomain.slice(0, -1)
         : editorDomain;
-    const fullUrl = `${baseUrl}${endpoint}?${desinglater}`;
-
-
-    return fullUrl;
+    return `${baseUrl}${endpoint}`;
 }
 
 /**
@@ -524,4 +523,3 @@ export const options = async () => {
 export const headers = () => {
     return corsHeaders;
 };
-
