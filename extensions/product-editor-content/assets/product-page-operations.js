@@ -108,7 +108,16 @@
       });
   }
 
-  function callCreateProjectAPI(cartAddBaseUrl, { variantSku = null, templateId = null, materialId = null, projectName = null } = {}) {
+  function callCreateProjectAPI(
+    cartAddBaseUrl,
+    {
+      variantSku = null,
+      templateId = null,
+      materialId = null,
+      projectName = null,
+      designLater = false,
+    } = {},
+  ) {
     const normalizedCartUrl = cartAddBaseUrl.split("?")[0];
     const returnUrl = normalizedCartUrl;
     const apiUrl = `${appUrl.replace(/\/$/, "")}/api/create-project?shop=${encodeURIComponent(
@@ -135,6 +144,11 @@
 
     if (projectName) {
       payload.overrides.projectName = projectName;
+    }
+
+    // Forward design-later mode explicitly to backend as lowercase "designlater"
+    if (designLater === true) {
+      payload.overrides.designlater = true;
     }
 
     return fetch(apiUrl, {
@@ -902,6 +916,20 @@
         return false;
       }
 
+      // If dropdown is enabled but no option is selected, block submission and ask user to choose.
+      if (personalisationMode === "") {
+        console.log(
+          `${LOG_PREFIX} [DEBUG] No personalisation mode selected; blocking add to cart`,
+        );
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+        }
+        alert("Please select a personalisation option.");
+        return true;
+      }
+
       if (personalisationMode === "design_for_me") {
         console.log(
           `${LOG_PREFIX} [DEBUG] Personalisation mode "design_for_me"; skipping editor flow and using native add to cart`,
@@ -964,17 +992,35 @@
       const variantMetafields = variantMetafieldsMap[variantId] || variantMetafieldsMap[`gid://shopify/ProductVariant/${variantId}`] || {};
       const templateId = variantMetafields.templateId || null;
       const materialId = variantMetafields.materialId || null;
+      const isDesignLaterMode = personalisationMode === "design_later";
 
-      // For "design_online" and any other modes (including empty and "design_later"
-      // for now), we use the editor flow.
-      callCreateProjectAPI(cartAddBaseUrl, { 
-        variantSku: sku, 
+      // For "design_online" and "design_later", we call the create-project API,
+      // but only "design_online" redirects to the editor. "design_later" skips
+      // the editor and just adds the project to the cart.
+      callCreateProjectAPI(cartAddBaseUrl, {
+        variantSku: sku,
         templateId: templateId,
         materialId: materialId,
-        projectName: projectReference 
+        projectName: projectReference,
+        designLater: isDesignLaterMode,
       })
         .then(({ projectId }) => {
-          const cartAddUrl = buildCartAddUrl(variantId, quantity, projectId, projectReference);
+          const cartAddUrl = buildCartAddUrl(
+            variantId,
+            quantity,
+            projectId,
+            projectReference,
+          );
+
+          if (isDesignLaterMode) {
+            console.log(
+              `${LOG_PREFIX} [DEBUG] design_later mode active; skipping editor redirect and going directly to cart`,
+              { cartAddUrl },
+            );
+            // Ürünü, oluşturulan projectid ile doğrudan sepete ekle.
+            window.location.href = cartAddUrl;
+            return;
+          }
 
           const editorUrl = buildEditorUrl(projectId, cartAddUrl, sku);
           redirectToEditor(editorUrl);

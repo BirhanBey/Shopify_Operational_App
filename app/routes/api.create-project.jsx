@@ -96,6 +96,7 @@ function generateRequestBody(editorSettings, overrideData = {}) {
             "usesettings",
             "useshowcropzone",
         ]),
+        // designlater: pick("designlater", true),
     };
 
     // Currency information (dummy defaults, can be overridden)
@@ -126,6 +127,8 @@ function generateRequestBody(editorSettings, overrideData = {}) {
         organisationid: testData.organisationId,
         a: testData.organisationApiKey,
         editorinstructions: testData.editorInstructions,
+        // designlater: testData.designlater,
+        // designlater: true,
 
         // Editor settings
         sheetsmax: testData.sheetsMax,
@@ -171,10 +174,11 @@ function generateRequestBody(editorSettings, overrideData = {}) {
  */
 function buildEditorApiUrl(editorDomain) {
     const endpoint = "/editor/api/createprojectAPI.php";
+    const desinglater = "designlater=true";
     const baseUrl = editorDomain.endsWith("/")
         ? editorDomain.slice(0, -1)
         : editorDomain;
-    const fullUrl = `${baseUrl}${endpoint}`;
+    const fullUrl = `${baseUrl}${endpoint}?${desinglater}`;
 
 
     return fullUrl;
