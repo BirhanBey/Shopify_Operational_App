@@ -30,9 +30,7 @@
     return;
   }
 
-  const isProductPage =
-    window.location.pathname.includes("/products/") ||
-    !!document.querySelector("form[action*='/cart/add']");
+  const isProductPage = window.location.pathname.includes("/products/");
 
   if (!isProductPage) {
     return;

@@ -432,6 +432,7 @@
   const thumbnailWarningProjects = new Set();
   const projectDetailsCache = {};
   const projectDetailsRequestCache = {};
+  const projectThumbnailRequestCache = {};
   // Projects for which we've already detected that the main line no longer
   // exists in cart.js. Used to avoid spamming warnings and to ensure we only
   // attempt orphan cleanup once per project.
@@ -1118,11 +1119,17 @@
       });
     }
 
+    if (projectThumbnailRequestCache[projectId]) {
+      // A thumbnail request is already in flight or was recently started for this project.
+      // When it resolves, applyThumbnailToAllItems will update all matching rows.
+      return;
+    }
+
     const apiUrl = `${appUrl}/api/project-thumbnail?projectid=${encodeURIComponent(
       projectId,
     )}&shop=${encodeURIComponent(shopDomain || "")}`;
 
-    fetch(apiUrl)
+    projectThumbnailRequestCache[projectId] = fetch(apiUrl)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -1163,6 +1170,7 @@
         applyThumbnailToAllItems(PLACEHOLDER_THUMBNAIL_SRC);
       })
       .finally(() => {
+        delete projectThumbnailRequestCache[projectId];
         if (img) {
           img.style.opacity = "1";
         }
