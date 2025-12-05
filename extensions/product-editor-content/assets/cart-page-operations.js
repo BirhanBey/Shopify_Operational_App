@@ -8,6 +8,7 @@
     config.shop ||
     (window.Shopify && (window.Shopify.shop || window.Shopify?.routes?.root));
   const feeVariantIdRaw = (config.feeVariantId || "").trim();
+  const PLACEHOLDER_THUMBNAIL_SRC = `${appUrl}/projects-placeholder.png`;
 
   function normalizeVariantId(value) {
     if (!value) return null;
@@ -120,7 +121,11 @@
     const apiKey = settings.editorApiKey;
     const lang =
       (navigator.language && navigator.language.split("-")[0]) || "en";
-    const returnUrl = `${window.location.origin}/cart`;
+    // Include metadata in return URL so we can detect that the customer
+    // arrived on the cart page after coming back from the editor.
+    const returnUrl = `${window.location.origin}/cart?editorReturn=1&editorProjectId=${encodeURIComponent(
+      projectId,
+    )}`;
     return `${domain}/?projectid=${encodeURIComponent(projectId)}&lang=${encodeURIComponent(lang)}&a=${encodeURIComponent(apiKey)}&skipped=true&returnurl=${encodeURIComponent(returnUrl)}`;
   }
 
@@ -297,6 +302,12 @@
         return;
       }
 
+      // Avoid re-applying breakdown UI repeatedly for the same fee row.
+      // If our container already exists, assume this row is up to date.
+      if (quantityCell.querySelector(".editor-price-breakdowns")) {
+        return;
+      }
+
       // Clear quantity cell content (quantity selector already removed earlier)
       quantityCell.innerHTML = "";
 
@@ -405,14 +416,14 @@
     const projectId = getProjectIdFromCartItem(cartItem) || "__no_project__";
     if (!thumbnailWarningProjects.has(projectId)) {
       thumbnailWarningProjects.add(projectId);
-      console.warn(
-        `${LOG_PREFIX} No thumbnail found, cart item structure:`,
-        {
+    console.warn(
+      `${LOG_PREFIX} No thumbnail found, cart item structure:`,
+      {
           projectId,
-          className: cartItem.className,
-          innerHTML: cartItem.innerHTML.substring(0, 500),
-        },
-      );
+        className: cartItem.className,
+        innerHTML: cartItem.innerHTML.substring(0, 500),
+      },
+    );
     }
     return null;
   }
@@ -421,6 +432,13 @@
   const thumbnailWarningProjects = new Set();
   const projectDetailsCache = {};
   const projectDetailsRequestCache = {};
+  // Projects for which we've already detected that the main line no longer
+  // exists in cart.js. Used to avoid spamming warnings and to ensure we only
+  // attempt orphan cleanup once per project.
+  const projectsWithoutMainLine = new Set();
+  // Throttle fee delta computations per project to avoid excessive /cart.js fetches
+  const lastFeeDeltaByProject = new Map();
+  const FEE_DELTA_THROTTLE_MS = 2000;
 
   let cartStatePromise = null;
 
@@ -457,11 +475,25 @@
       return;
     }
 
+    // If we've already processed this project as having no main line in
+    // cart.js, skip further fee delta computations and orphan attempts.
+    if (projectsWithoutMainLine.has(projectId)) {
+      return;
+    }
+
+    // Throttle how often we compute fee delta and hit /cart.js for a given project.
+    const now = Date.now();
+    const lastRun = lastFeeDeltaByProject.get(projectId) || 0;
+    if (now - lastRun < FEE_DELTA_THROTTLE_MS) {
+      return;
+    }
+    lastFeeDeltaByProject.set(projectId, now);
+
     return fetchCartState()
       .then((cartState) => {
         if (!cartState || !Array.isArray(cartState.items)) {
-      return;
-    }
+          return;
+        }
 
         const mainItem = cartState.items.find((item) => {
           const props = item.properties || {};
@@ -472,11 +504,60 @@
         });
 
         if (!mainItem) {
-          console.warn(
-            `${LOG_PREFIX} [FEE] No main line item found in cart.js for project`,
-            { projectId },
-          );
-          return;
+          if (!projectsWithoutMainLine.has(projectId)) {
+            console.warn(
+              `${LOG_PREFIX} [FEE] No main line item found in cart.js for project`,
+              { projectId },
+            );
+            projectsWithoutMainLine.add(projectId);
+          }
+
+          // Attempt to remove any orphan personalisation fee line for this
+          // project directly here. If it fails (e.g. key is stale), we log
+          // once and stop retrying.
+          const orphanFeeItem = cartState.items.find((item) => {
+            const props = item.properties || {};
+            return (
+              String(item.variant_id) === feeVariantId &&
+              props.is_personalisation_fee === "true" &&
+              props.projectid === projectId
+            );
+          });
+
+          if (!orphanFeeItem || !orphanFeeItem.key) {
+            return;
+          }
+
+          return fetch("/cart/change.js", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: orphanFeeItem.key,
+              quantity: 0,
+            }),
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response.json();
+        })
+            .then(() => {
+              // Reload cart after removing orphan personalisation fee line for deleted project
+              window.location.reload();
+            })
+            .catch((error) => {
+              console.warn(
+                `${LOG_PREFIX} [FEE] Failed to remove orphan personalisation fee line after main line missing`,
+                {
+                  projectId,
+                  feeLineKey: orphanFeeItem.key,
+                  error,
+                },
+              );
+            });
         }
 
         const linePriceCents =
@@ -727,6 +808,10 @@
 
       event.preventDefault();
       event.stopPropagation();
+      // console.log(`${LOG_PREFIX} [REMOVE] Intercepted remove click`, {
+      //   projectId,
+      //   mainLineKey,
+      // });
 
       fetchCartState()
         .then((cartState) => {
@@ -810,67 +895,11 @@
     });
   }
 
-  function cleanupOrphanPersonalisationFeeLines(cartState) {
-    if (!feeVariantId) {
-      return;
-    }
-    if (!cartState || !Array.isArray(cartState.items)) {
-      return;
-    }
-
-    const mainProjectIds = new Set();
-    /** @type {{key: string, projectId: string}[]} */
-    const feeLines = [];
-
-    cartState.items.forEach((item) => {
-      const props = item.properties || {};
-      const projectId = props.projectid;
-      if (!projectId) {
-        return;
-      }
-
-      if (props.is_personalisation_fee === "true") {
-        if (item.key) {
-          feeLines.push({ key: item.key, projectId });
-        }
-      } else {
-        mainProjectIds.add(projectId);
-      }
-    });
-
-    feeLines.forEach(({ key, projectId }) => {
-      if (mainProjectIds.has(projectId)) {
-        return;
-      }
-
-      console.log(
-        `${LOG_PREFIX} [FEE] Removing orphan personalisation fee line`,
-        {
-          projectId,
-          lineKey: key,
-        },
-      );
-
-      fetch("/cart/change.js", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: key,
-          quantity: 0,
-        }),
-      }).catch((error) => {
-        console.warn(
-          `${LOG_PREFIX} [FEE] Failed to remove orphan personalisation fee line`,
-          {
-            projectId,
-            lineKey: key,
-            error,
-          },
-        );
-      });
-    });
+  function cleanupOrphanPersonalisationFeeLines() {
+    // Orphan cleanup is now handled inside logFeeDeltaForProject when we first
+    // detect that a project no longer has a main line in cart.js. This function
+    // is kept as a no-op for backwards compatibility.
+    return;
   }
 
   function applyProjectNameToCartItem(cartItem, projectId, projectName) {
@@ -1037,11 +1066,56 @@
   function fetchAndReplaceThumbnail(cartItem, projectId) {
     const img = findThumbnailElement(cartItem);
     if (img && img.dataset.projectThumbnail === "true") {
-      return;
+      const currentSrc = img.getAttribute("src") || "";
+      // If we already applied a non-placeholder thumbnail, do not touch it again.
+      if (currentSrc && !currentSrc.startsWith("data:image/svg+xml")) {
+        return;
+      }
+      // If current src is an inline SVG placeholder, allow override below.
     }
 
     if (img) {
-    img.style.opacity = "0.6";
+      img.style.opacity = "0.6";
+    }
+
+    function applyThumbnailToAllItems(src) {
+      if (!src) {
+        return;
+      }
+
+      const allCartItems = document.querySelectorAll(
+        ".cart-item, .cart__item, [data-cart-item], .line-item, tr.cart-items__table-row",
+      );
+
+      allCartItems.forEach((item) => {
+        const itemProjectId = getProjectIdFromCartItem(item);
+        if (itemProjectId !== projectId) {
+          return;
+        }
+
+        // Ürün görseli hücresini bul
+        const mediaCell =
+          item.querySelector('td.cart-items__media[headers="productImage"]') ||
+          item.querySelector(
+            ".cart-item__media, .cart-item__image, .cart__image, .cart-item__figure",
+          ) ||
+          item;
+
+        let targetImg =
+          mediaCell.querySelector("img") || mediaCell.querySelector("a img");
+
+        if (!targetImg) {
+          targetImg = document.createElement("img");
+          targetImg.alt = "Project thumbnail";
+          mediaCell.appendChild(targetImg);
+        }
+
+        targetImg.src = src;
+        targetImg.removeAttribute("srcset");
+        targetImg.removeAttribute("sizes");
+        targetImg.dataset.projectThumbnail = "true";
+        targetImg.dataset.projectId = projectId;
+      });
     }
 
     const apiUrl = `${appUrl}/api/project-thumbnail?projectid=${encodeURIComponent(
@@ -1057,50 +1131,26 @@
       })
       .then((data) => {
         if (data && data.success && data.thumbnail) {
-          const thumbnailSrc = data.thumbnail;
+          let thumbnailSrc = data.thumbnail;
+
+          // If API returns an inline SVG placeholder, prefer our static placeholder instead
+          if (
+            !thumbnailSrc ||
+            String(thumbnailSrc).startsWith("data:image/svg+xml")
+          ) {
+            thumbnailSrc = PLACEHOLDER_THUMBNAIL_SRC;
+          }
 
           // Aynı projectId'ye sahip TÜM satırların ürün görsellerini güncelle
-          const allCartItems = document.querySelectorAll(
-            ".cart-item, .cart__item, [data-cart-item], .line-item, tr.cart-items__table-row",
-          );
-
-          allCartItems.forEach((item) => {
-            const itemProjectId = getProjectIdFromCartItem(item);
-            if (itemProjectId !== projectId) {
-              return;
-            }
-
-            // Ürün görseli hücresini bul
-            const mediaCell =
-              item.querySelector(
-                'td.cart-items__media[headers="productImage"]',
-              ) ||
-              item.querySelector(
-                ".cart-item__media, .cart-item__image, .cart__image, .cart-item__figure",
-              ) ||
-              item;
-
-            let targetImg =
-              mediaCell.querySelector("img") || mediaCell.querySelector("a img");
-
-            if (!targetImg) {
-              targetImg = document.createElement("img");
-              targetImg.alt = "Project thumbnail";
-              mediaCell.appendChild(targetImg);
-            }
-
-            targetImg.src = thumbnailSrc;
-            targetImg.removeAttribute("srcset");
-            targetImg.removeAttribute("sizes");
-            targetImg.dataset.projectThumbnail = "true";
-            targetImg.dataset.projectId = projectId;
-          });
+          applyThumbnailToAllItems(thumbnailSrc);
 
           if (!loggedProjects.has(projectId)) {
             loggedProjects.add(projectId);
           }
         } else {
           console.warn(`${LOG_PREFIX} Invalid thumbnail data`, data);
+          // Thumbnail verisi yoksa veya hatalıysa placeholder kullan
+          applyThumbnailToAllItems(PLACEHOLDER_THUMBNAIL_SRC);
         }
       })
       .catch((error) => {
@@ -1109,10 +1159,12 @@
           projectId,
           error,
         );
+        // Thumbnail isteği tamamen başarısız olursa da placeholder kullan
+        applyThumbnailToAllItems(PLACEHOLDER_THUMBNAIL_SRC);
       })
       .finally(() => {
         if (img) {
-        img.style.opacity = "1";
+          img.style.opacity = "1";
         }
       });
   }
@@ -1488,13 +1540,6 @@
 
     // Ensure personalisation fee rows appear directly under their main project rows
     groupPersonalisationFeeRows();
-
-    // Remove any orphan personalisation fee lines whose main project has been deleted
-    fetchCartState()
-      .then((cartState) => {
-        cleanupOrphanPersonalisationFeeLines(cartState);
-      })
-      .catch(() => {});
   }
 
   let cartMutationTimeout = null;
@@ -1517,7 +1562,6 @@
         }
 
         cartMutationTimeout = setTimeout(() => {
-          resetCartState();
           processCartItems();
         }, 50);
       });
@@ -1531,6 +1575,7 @@
       // handled per button
     });
     processCartItems();
+    cleanupOrphanPersonalisationFeeLines();
     document.addEventListener("cart:updated", () => {
       resetCartState();
       processCartItems();

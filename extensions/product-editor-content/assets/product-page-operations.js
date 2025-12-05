@@ -646,7 +646,7 @@
     if (existingInput) {
       existingInput.remove();
     }
-    
+
     // Check if selected variant has use_project_reference enabled
     // Try both numeric ID and GID format
     const gidFormat = selectedVariantId.includes('/') 
@@ -722,49 +722,49 @@
     let projectReferenceAnchor = null;
 
     if (shouldShowProjectReference) {
-      if (buyButtonsBlock && buyButtonsBlock.parentNode) {
-        // Best option: insert before buy-buttons-block span
-        const inputContainer = createProjectReferenceInput();
-        buyButtonsBlock.parentNode.insertBefore(inputContainer, buyButtonsBlock);
+    if (buyButtonsBlock && buyButtonsBlock.parentNode) {
+      // Best option: insert before buy-buttons-block span
+      const inputContainer = createProjectReferenceInput();
+      buyButtonsBlock.parentNode.insertBefore(inputContainer, buyButtonsBlock);
         projectReferenceAnchor = inputContainer;
-      } else if (quantitySelector && quantitySelector.parentNode) {
-        // Fallback: insert before quantity-selector-component
-        const inputContainer = createProjectReferenceInput();
+    } else if (quantitySelector && quantitySelector.parentNode) {
+      // Fallback: insert before quantity-selector-component
+      const inputContainer = createProjectReferenceInput();
         quantitySelector.parentNode.insertBefore(
           inputContainer,
           quantitySelector,
         );
         projectReferenceAnchor = inputContainer;
-      } else if (productFormButtons) {
-        // Fallback: insert at the beginning of product-form-buttons div (before quantity selector and add to cart)
-        const inputContainer = createProjectReferenceInput();
+    } else if (productFormButtons) {
+      // Fallback: insert at the beginning of product-form-buttons div (before quantity selector and add to cart)
+      const inputContainer = createProjectReferenceInput();
         productFormButtons.insertBefore(
           inputContainer,
           productFormButtons.firstChild,
         );
         projectReferenceAnchor = inputContainer;
-      } else if (addToCartButton && addToCartButton.parentNode) {
-        const inputContainer = createProjectReferenceInput();
-
-        // Insert before add to cart button's parent (the span containing the button)
+    } else if (addToCartButton && addToCartButton.parentNode) {
+      const inputContainer = createProjectReferenceInput();
+      
+      // Insert before add to cart button's parent (the span containing the button)
         const buttonParent =
           addToCartButton.closest("span") || addToCartButton.parentNode;
-        buttonParent.parentNode.insertBefore(inputContainer, buttonParent);
+      buttonParent.parentNode.insertBefore(inputContainer, buttonParent);
         projectReferenceAnchor = inputContainer;
-      } else {
+    } else {
         console.warn(
           `${LOG_PREFIX} [DEBUG] Add to cart button and container not found, using form fallback for project reference`,
         );
-        // Last fallback: find product-form-component and append there, or append to form
+      // Last fallback: find product-form-component and append there, or append to form
         const productFormComponent = form.closest("product-form-component");
-        if (productFormComponent) {
-          const inputContainer = createProjectReferenceInput();
-          // Try to insert before the form
-          productFormComponent.insertBefore(inputContainer, form);
+      if (productFormComponent) {
+        const inputContainer = createProjectReferenceInput();
+        // Try to insert before the form
+        productFormComponent.insertBefore(inputContainer, form);
           projectReferenceAnchor = inputContainer;
-        } else {
-          const inputContainer = createProjectReferenceInput();
-          form.appendChild(inputContainer);
+      } else {
+        const inputContainer = createProjectReferenceInput();
+        form.appendChild(inputContainer);
           projectReferenceAnchor = inputContainer;
         }
       }
