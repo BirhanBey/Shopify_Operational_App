@@ -1411,6 +1411,25 @@
     });
   }
 
+  function updateCartBubbleVisibility(hasPersonalisationFee) {
+    try {
+      const bubble = document.querySelector(".cart-title .cart-bubble");
+      if (!bubble) {
+        return;
+      }
+
+      if (hasPersonalisationFee) {
+        /** @type {HTMLElement} */ (bubble).style.display = "none";
+        bubble.setAttribute("data-editor-hidden", "true");
+      } else if (bubble.getAttribute("data-editor-hidden") === "true") {
+        /** @type {HTMLElement} */ (bubble).style.display = "";
+        bubble.removeAttribute("data-editor-hidden");
+      }
+    } catch (e) {
+      // Ignore DOM errors; cart bubble is purely cosmetic.
+    }
+  }
+
   function groupPersonalisationFeeRows() {
     const tableBody =
       document.querySelector(".cart-items__table tbody") ||
@@ -1489,11 +1508,13 @@
 
     if (!cartItems.length) {
       console.warn(`${LOG_PREFIX} No cart items detected`);
+      updateCartBubbleVisibility(false);
       return;
     }
 
     /** @type {Map<string, HTMLElement>} */
     const primaryCartItemByProjectId = new Map();
+    let hasPersonalisationFee = false;
 
     cartItems.forEach((cartItem) => {
       const projectId = getProjectIdFromCartItem(cartItem);
@@ -1505,6 +1526,9 @@
       cartItem.setAttribute("data-project-id", projectId);
 
       const isFee = isPersonalisationFeeCartItem(cartItem);
+      if (isFee) {
+        hasPersonalisationFee = true;
+      }
 
       // Track a primary cart item per projectId (prefer non-fee rows)
       const existingPrimary = primaryCartItemByProjectId.get(projectId);
@@ -1523,7 +1547,7 @@
         primaryCartItemByProjectId.set(projectId, cartItem);
       }
 
-        fetchAndReplaceThumbnail(cartItem, projectId);
+      fetchAndReplaceThumbnail(cartItem, projectId);
 
       if (isFee) {
         adjustPersonalisationFeeCartItem(cartItem);
@@ -1540,6 +1564,9 @@
 
     // Ensure personalisation fee rows appear directly under their main project rows
     groupPersonalisationFeeRows();
+
+    // Hide or show cart bubble depending on whether there are any personalisation fee rows
+    updateCartBubbleVisibility(hasPersonalisationFee);
   }
 
   let cartMutationTimeout = null;
