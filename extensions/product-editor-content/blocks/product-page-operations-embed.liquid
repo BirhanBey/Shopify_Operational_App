@@ -11,6 +11,7 @@
       {% assign use_project_ref_metafield = variant.metafields.custom.use_project_reference %}
       {% assign template_id_metafield = variant.metafields.custom.template_id %}
       {% assign material_id_metafield = variant.metafields.custom.material_id %}
+      {% assign use_image_uploads_metafield = variant.metafields.custom.use_image_uploads %}
       {% assign use_project_ref = false %}
       {% if use_project_ref_metafield %}
         {% assign metafield_value = use_project_ref_metafield.value %}
@@ -18,17 +19,26 @@
           {% assign use_project_ref = true %}
         {% endif %}
       {% endif %}
+      {% assign use_image_uploads = false %}
+      {% if use_image_uploads_metafield %}
+        {% assign uploads_value = use_image_uploads_metafield.value %}
+        {% if uploads_value == "true" or uploads_value == true %}
+          {% assign use_image_uploads = true %}
+        {% endif %}
+      {% endif %}
       {% assign template_id = template_id_metafield.value | default: null %}
       {% assign material_id = material_id_metafield.value | default: null %}
       variantMetafieldsMap['{{ variant.id }}'] = { 
         useProjectReference: {{ use_project_ref }}, 
         templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
-        materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %}
+        materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %},
+        useImageUploads: {{ use_image_uploads }}
       };
       variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { 
         useProjectReference: {{ use_project_ref }}, 
         templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
-        materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %}
+        materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %},
+        useImageUploads: {{ use_image_uploads }}
       };
     {% endfor %}
   {% endif %}

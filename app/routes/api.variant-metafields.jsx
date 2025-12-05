@@ -93,7 +93,11 @@ export const loader = async ({ request }) => {
                         edges {
                             node {
                                 id
-                                metafield(namespace: "custom", key: "use_project_reference") {
+                                useProjectReference: metafield(namespace: "custom", key: "use_project_reference") {
+                                    id
+                                    value
+                                }
+                                useImageUploads: metafield(namespace: "custom", key: "use_image_uploads") {
                                     id
                                     value
                                 }
@@ -131,23 +135,30 @@ export const loader = async ({ request }) => {
         variants.forEach((edge) => {
             const variant = edge.node;
             const variantId = variant.id;
-            const metafield = variant.metafield;
+            const useProjectReferenceField = variant.useProjectReference;
+            const useImageUploadsField = variant.useImageUploads;
 
             // Extract numeric ID from GID format (gid://shopify/ProductVariant/123456 -> 123456)
-            const numericId = variantId.includes('/')
-                ? variantId.split('/').pop()
+            const numericId = variantId.includes("/")
+                ? variantId.split("/").pop()
                 : variantId;
 
-            variantMetafields[variantId] = {
+            const entry = {
                 useProjectReference:
-                    metafield?.value === "true" ||
-                    metafield?.value === true ||
-                    metafield?.value === "True",
+                    useProjectReferenceField?.value === "true" ||
+                    useProjectReferenceField?.value === true ||
+                    useProjectReferenceField?.value === "True",
+                useImageUploads:
+                    useImageUploadsField?.value === "true" ||
+                    useImageUploadsField?.value === true ||
+                    useImageUploadsField?.value === "True",
             };
+
+            variantMetafields[variantId] = entry;
 
             // Also add with numeric ID for compatibility
             if (numericId !== variantId) {
-                variantMetafields[numericId] = variantMetafields[variantId];
+                variantMetafields[numericId] = entry;
             }
         });
 

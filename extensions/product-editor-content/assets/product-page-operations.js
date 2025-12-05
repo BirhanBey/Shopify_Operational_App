@@ -196,7 +196,7 @@
     return `${baseUrl}?${params.toString()}`;
   }
 
-  function buildEditorUrl(projectId, cartAddUrl, sku = null) {
+  function buildEditorUrl(projectId, cartAddUrl, sku = null, skipUploads = false) {
     if (
       !editorSettings ||
       !editorSettings.editorApiKey ||
@@ -212,7 +212,7 @@
 
     const params = new URLSearchParams({
       projectid: projectId,
-      skipped: "",
+      skipped: skipUploads ? "true" : "",
       editorid: "PIE",
       lang: editorLang,
       a: apiKey,
@@ -304,23 +304,37 @@
       }
       
       // Build variant metafields map from analytics data
-      const variants = Array.isArray(productData.variants) 
-        ? productData.variants 
+      const variants = Array.isArray(productData.variants)
+        ? productData.variants
         : Object.values(productData.variants || {});
 
       variants.forEach((variant) => {
-        if (variant.id) {
-          const metafieldValue = variant.metafields?.custom?.use_project_reference?.value;
-          const useProjectReference = metafieldValue === "true" || metafieldValue === true;
-          const templateId = variant.metafields?.custom?.template_id?.value || null;
-          const materialId = variant.metafields?.custom?.material_id?.value || null;
-          
+        if (variant.id && variant.metafields?.custom) {
+          const useProjectReferenceValue =
+            variant.metafields.custom.use_project_reference?.value;
+          const useProjectReference =
+            useProjectReferenceValue === "true" ||
+            useProjectReferenceValue === true ||
+            useProjectReferenceValue === "True";
+
+          const templateId =
+            variant.metafields.custom.template_id?.value || null;
+          const materialId =
+            variant.metafields.custom.material_id?.value || null;
+
+          const useImageUploadsValue =
+            variant.metafields.custom.use_image_uploads?.value;
+          const useImageUploads =
+            useImageUploadsValue === "true" ||
+            useImageUploadsValue === true ||
+            useImageUploadsValue === "True";
+
           variantMetafieldsMap[variant.id] = {
-            useProjectReference: useProjectReference,
-            templateId: templateId,
-            materialId: materialId,
+            useProjectReference,
+            templateId,
+            materialId,
+            useImageUploads,
           };
-          
         }
       });
       return Promise.resolve();
@@ -988,10 +1002,14 @@
 
       const sku = mappedSku || domSku || null;
 
-      // Get templateId and materialId from variant metafields
-      const variantMetafields = variantMetafieldsMap[variantId] || variantMetafieldsMap[`gid://shopify/ProductVariant/${variantId}`] || {};
+      // Get templateId, materialId and useImageUploads from variant metafields
+      const variantMetafields =
+        variantMetafieldsMap[variantId] ||
+        variantMetafieldsMap[`gid://shopify/ProductVariant/${variantId}`] ||
+        {};
       const templateId = variantMetafields.templateId || null;
       const materialId = variantMetafields.materialId || null;
+      const useImageUploads = variantMetafields.useImageUploads === true;
       const isDesignLaterMode = personalisationMode === "design_later";
 
       // For "design_online" and "design_later", we call the create-project API,
@@ -1022,7 +1040,13 @@
             return;
           }
 
-          const editorUrl = buildEditorUrl(projectId, cartAddUrl, sku);
+          const skipUploads = !useImageUploads;
+          const editorUrl = buildEditorUrl(
+            projectId,
+            cartAddUrl,
+            sku,
+            skipUploads,
+          );
           redirectToEditor(editorUrl);
         })
         .catch((error) => {
