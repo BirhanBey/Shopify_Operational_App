@@ -382,7 +382,7 @@
     label.style.cssText = `
       display: block;
       margin-bottom: 0.5rem;
-      font-weight: 500;
+      font-weight: bold;
       visibility: visible;
     `;
 
@@ -430,7 +430,7 @@
     label.style.cssText = `
       display: block;
       margin-bottom: 0.5rem;
-      font-weight: 500;
+      font-weight: bold;
     `;
 
     const select = document.createElement("select");
@@ -464,6 +464,84 @@
 
     console.log(
       `${LOG_PREFIX} [DEBUG] Created personalisation dropdown container`,
+    );
+
+    return container;
+  }
+
+  function createPersonalisationInfoAccordion() {
+    const existing = document.getElementById(
+      "personalisation-info-accordion-container",
+    );
+    if (existing) {
+      return existing;
+    }
+
+    const container = document.createElement("div");
+    container.id = "personalisation-info-accordion-container";
+    container.className = "block-content_Wi4wJD accordion-a compact";
+    container.style.cssText = `
+      margin-bottom: 0.75rem;
+      width: 100%;
+      box-sizing: border-box;
+      z-index: 50;
+    `;
+
+    const details = document.createElement("details");
+    // Start accordion in closed state
+    details.open = false;
+
+    const summary = document.createElement("summary");
+    summary.style.display = "flex";
+    summary.style.alignItems = "center";
+    summary.style.justifyContent = "space-between";
+    summary.style.cursor = "pointer";
+
+    const summarySpan = document.createElement("span");
+    summarySpan.innerHTML =
+      "Difference between Design Now / Design Later / Design for you";
+    summarySpan.style.fontWeight = "bold";
+    summary.appendChild(summarySpan);
+
+    const iconSpan = document.createElement("span");
+
+    // Inline SVG icon sourced from extensions/src/arrow-up.svg
+    iconSpan.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8.009 8.009 0 0 1-8 8z"/><path d="m7.293 13.293 1.414 1.414L12 11.414l3.293 3.293 1.414-1.414L12 8.586l-4.707 4.707z"/></svg>
+    `;
+    iconSpan.style.marginTop = "-1.1rem";
+    
+    summary.appendChild(iconSpan);
+
+    const content = document.createElement("div");
+    content.innerHTML =
+      'Choose when to design your product:<br><br><strong>Design Now</strong><br>Create your design online, and we’ll print it exactly as made.<br><br><strong>Design Later</strong><br>Order first and send us your design afterward. We’ll contact you to arrange it.</p><p><strong>Design for you</strong><br>No time or desire to design it yourself? Then choose our design service. You tell us what you want and our designers take care of the rest. <br>';
+
+    // Keep the arrow icon in sync with the accordion open/closed state
+    const updateIcon = () => {
+      iconSpan.style.transform = details.open ? "rotate(0deg)" : "rotate(180deg)";
+    };
+    details.addEventListener("toggle", updateIcon);
+    updateIcon();
+
+    details.appendChild(summary);
+    details.appendChild(content);
+
+    // Add horizontal rules before and after the accordion block
+    const topLine = document.createElement("hr");
+    topLine.style.margin = "0.75rem 0 0.5rem 0";
+    topLine.style.borderTop = "1px solid lightgray";
+
+    const bottomLine = document.createElement("hr");
+    bottomLine.style.margin = "0.5rem 0 0.75rem 0";
+    bottomLine.style.borderTop = "1px solid lightgray";
+
+    container.appendChild(topLine);
+    container.appendChild(details);
+    container.appendChild(bottomLine);
+
+    console.log(
+      `${LOG_PREFIX} [DEBUG] Created personalisation info accordion container`,
     );
 
     return container;
@@ -591,6 +669,9 @@
 
     const dropdown = createPersonalisationDropdown();
     anchorElement.parentNode.insertBefore(dropdown, anchorElement.nextSibling);
+
+    const accordion = createPersonalisationInfoAccordion();
+    dropdown.parentNode.insertBefore(accordion, dropdown.nextSibling);
 
     // Attach change listener to keep button label in sync with mode
     const select = /** @type {HTMLSelectElement | null} */ (
