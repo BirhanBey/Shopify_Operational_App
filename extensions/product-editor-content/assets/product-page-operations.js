@@ -145,9 +145,10 @@
     }
 
     // Forward design-later mode explicitly to backend as lowercase "designlater"
-    if (designLater === true) {
-      payload.overrides.designlater = true;
-    }
+    // When designLater is true (mode "design_later"), send true.
+    // For all other modes ("design_online", "design_for_me", etc.), send false.
+    // This ensures the backend receives an explicit boolean instead of defaulting to true.
+    payload.overrides.designlater = designLater === true;
 
     return fetch(apiUrl, {
       method: "POST",
@@ -1033,7 +1034,7 @@
               `${LOG_PREFIX} [DEBUG] design_later mode active; skipping editor redirect and going directly to cart`,
               { cartAddUrl },
             );
-            // Ürünü, oluşturulan projectid ile doğrudan sepete ekle.
+            // Add the product directly to the cart using the generated project ID.
             window.location.href = cartAddUrl;
             return;
           }

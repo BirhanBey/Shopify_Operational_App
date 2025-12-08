@@ -96,7 +96,7 @@ function generateRequestBody(editorSettings, overrideData = {}) {
             "usesettings",
             "useshowcropzone",
         ]),
-        // designlater: pick("designlater", true),
+        designlater: pick("designlater", true),
     };
 
     // Currency information (dummy defaults, can be overridden)
@@ -127,8 +127,7 @@ function generateRequestBody(editorSettings, overrideData = {}) {
         organisationid: testData.organisationId,
         a: testData.organisationApiKey,
         editorinstructions: testData.editorInstructions,
-        // designlater: testData.designlater,
-        // designlater: true,
+        designlater: testData.designlater,
 
         // Editor settings
         sheetsmax: testData.sheetsMax,

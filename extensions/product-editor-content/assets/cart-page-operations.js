@@ -966,6 +966,11 @@
       // Recompute and sync fee line in case quantities/prices changed
       if (cached.totalPrice != null) {
         logFeeDeltaForProject(projectId, cached.totalPrice);
+      } else {
+        // If there is no total price recorded for this project, hide quantity
+        // controls for all matching cart items to avoid quantity-based pricing
+        // changes on projects that have not been fully priced yet (e.g. design later).
+        hideProjectQuantityInputForProject(projectId);
       }
 
       return;
@@ -1047,8 +1052,14 @@
           hideProjectQuantityInputForProject(projectId);
         }
 
-        // Compute and sync fee line for this project
-        logFeeDeltaForProject(projectId, projectTotalPrice);
+        // Compute and sync fee line for this project only when editor returned
+        // a valid total price. If there is no total price (e.g. design later),
+        // just hide quantity controls without attempting fee delta logic.
+        if (projectTotalPrice != null) {
+          logFeeDeltaForProject(projectId, projectTotalPrice);
+        } else {
+          hideProjectQuantityInputForProject(projectId);
+        }
       })
       .catch((error) => {
         console.warn(
