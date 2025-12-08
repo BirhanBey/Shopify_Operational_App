@@ -164,8 +164,9 @@ function PelemanProductEditorSettings() {
     const [includedPages, setIncludedPages] = useState("");
     const [productUnitCode, setProductUnitCode] = useState("");
     const [isSaving, setIsSaving] = useState(false);
-    // Open Editor Settings by default on initial load
-    const [isEditorSettingsOpen, setIsEditorSettingsOpen] = useState(true);
+    // Accordion state for settings sections
+    const [isEditorActivateOpen, setIsEditorActivateOpen] = useState(true);
+    const [isEditorSettingsOpen, setIsEditorSettingsOpen] = useState(false);
     const [isAdditionalSettingsOpen, setIsAdditionalSettingsOpen] = useState(false);
 
     const loadProductVariants = useCallback(async () => {
@@ -522,20 +523,20 @@ function PelemanProductEditorSettings() {
 
             // Update or create metafields
             if (metafields.length > 0) {
-            const response = await query(UPDATE_METAFIELD_MUTATION, {
-                variables: {
-                    metafields: metafields,
-                },
-            });
+                const response = await query(UPDATE_METAFIELD_MUTATION, {
+                    variables: {
+                        metafields: metafields,
+                    },
+                });
 
-            if (response.errors?.length) {
-                return;
-            }
+                if (response.errors?.length) {
+                    return;
+                }
 
-            const userErrors = response.data?.metafieldsSet?.userErrors || [];
-            if (userErrors.length > 0) {
-                return;
-            }
+                const userErrors = response.data?.metafieldsSet?.userErrors || [];
+                if (userErrors.length > 0) {
+                    return;
+                }
             }
 
             // Reload variants to get updated data
@@ -606,10 +607,25 @@ function PelemanProductEditorSettings() {
                     <Divider />
                     <InlineStack spacing="tight">
                         <Button
+                            kind={isEditorActivateOpen ? "primary" : "secondary"}
+                            onPress={() => {
+                                const next = !isEditorActivateOpen;
+                                setIsEditorActivateOpen(next);
+                                if (next) {
+                                    setIsEditorSettingsOpen(false);
+                                    setIsAdditionalSettingsOpen(false);
+                                }
+                            }}
+                        >
+                            {isEditorActivateOpen ? "▼" : "▶"} Editor Activate
+                        </Button>
+                        <Button
                             kind={isEditorSettingsOpen ? "primary" : "secondary"}
                             onPress={() => {
-                                setIsEditorSettingsOpen(!isEditorSettingsOpen);
-                                if (!isEditorSettingsOpen) {
+                                const next = !isEditorSettingsOpen;
+                                setIsEditorSettingsOpen(next);
+                                if (next) {
+                                    setIsEditorActivateOpen(false);
                                     setIsAdditionalSettingsOpen(false);
                                 }
                             }}
@@ -619,8 +635,10 @@ function PelemanProductEditorSettings() {
                         <Button
                             kind={isAdditionalSettingsOpen ? "primary" : "secondary"}
                             onPress={() => {
-                                setIsAdditionalSettingsOpen(!isAdditionalSettingsOpen);
-                                if (!isAdditionalSettingsOpen) {
+                                const next = !isAdditionalSettingsOpen;
+                                setIsAdditionalSettingsOpen(next);
+                                if (next) {
+                                    setIsEditorActivateOpen(false);
                                     setIsEditorSettingsOpen(false);
                                 }
                             }}
@@ -628,6 +646,24 @@ function PelemanProductEditorSettings() {
                             {isAdditionalSettingsOpen ? "▼" : "▶"} Additional Settings
                         </Button>
                     </InlineStack>
+                    {isEditorActivateOpen && (
+                        <BlockStack spacing="base">
+                            <Text
+                                size="extraLarge"
+                                emphasis="bold"
+                                alignment="center"
+                            >
+                                Editor Activate
+                            </Text>
+                            <BlockStack spacing="tight">
+                                <Text size="small">
+                                    Configure whether the Peleman editor is activated for
+                                    this product. You can add activation-specific options
+                                    here in the future.
+                                </Text>
+                            </BlockStack>
+                        </BlockStack>
+                    )}
                     {isEditorSettingsOpen && (
                         <BlockStack spacing="base">
                             <Text
