@@ -53,7 +53,7 @@
     productEditorSettingRaw,
   });
 
-  function isPersonalisationDropdownEnabled() {
+  function isImageEditorActivated() {
     if (!productEditorSettingRaw) {
       console.log(
         `${LOG_PREFIX} [DEBUG] No product editor setting metafield value found; personalisation dropdown disabled`,
@@ -401,9 +401,15 @@
       opacity: 1;
       box-sizing: border-box;
     `;
+    
+    const dropdownEnabled = isImageEditorActivated();
 
-    inputContainer.appendChild(label);
-    inputContainer.appendChild(input);
+    if(dropdownEnabled) {
+      inputContainer.appendChild(label);
+      inputContainer.appendChild(input);
+    }
+    // inputContainer.appendChild(label);
+    // inputContainer.appendChild(input);
 
     return inputContainer;
   }
@@ -648,7 +654,7 @@
   }
 
   function ensurePersonalisationDropdown(anchorElement) {
-    if (!isPersonalisationDropdownEnabled()) {
+    if (!isImageEditorActivated()) {
       return;
     }
     if (!anchorElement || !anchorElement.parentNode) {
@@ -992,7 +998,7 @@
       // If personalisation dropdown is not enabled for this product,
       // or the user explicitly selected "Design For Me",
       // do NOT intercept; let native add to cart work.
-      const dropdownEnabled = isPersonalisationDropdownEnabled();
+      const dropdownEnabled = isImageEditorActivated();
       const personalisationMode = getCurrentPersonalisationMode();
 
       console.log(
