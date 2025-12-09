@@ -12,6 +12,7 @@
       {% assign template_id_metafield = variant.metafields.custom.template_id %}
       {% assign material_id_metafield = variant.metafields.custom.material_id %}
       {% assign use_image_uploads_metafield = variant.metafields.custom.use_image_uploads %}
+      {% assign editor_type_metafield = variant.metafields.custom.editor_type %}
       {% assign use_project_ref = false %}
       {% if use_project_ref_metafield %}
         {% assign metafield_value = use_project_ref_metafield.value %}
@@ -28,27 +29,25 @@
       {% endif %}
       {% assign template_id = template_id_metafield.value | default: null %}
       {% assign material_id = material_id_metafield.value | default: null %}
+      {% assign editor_type = null %}
+      {% if editor_type_metafield and editor_type_metafield.value %}
+        {% assign editor_type = editor_type_metafield.value | first | default: null %}
+      {% endif %}
       variantMetafieldsMap['{{ variant.id }}'] = { 
         useProjectReference: {{ use_project_ref }}, 
         templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
         materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %},
-        useImageUploads: {{ use_image_uploads }}
+        useImageUploads: {{ use_image_uploads }},
+        editorType: {% if editor_type %}'{{ editor_type }}'{% else %}null{% endif %}
       };
       variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = { 
         useProjectReference: {{ use_project_ref }}, 
         templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
         materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %},
-        useImageUploads: {{ use_image_uploads }}
+        useImageUploads: {{ use_image_uploads }},
+        editorType: {% if editor_type %}'{{ editor_type }}'{% else %}null{% endif %}
       };
     {% endfor %}
-  {% endif %}
-
-  // Product-level editor setting metafield (used for conditional UI on product page)
-  // Definition: custom.product_editor_type
-  {% assign product_editor_settings_metafield = product.metafields.custom.product_editor_type %}
-  var productEditorSetting = null;
-  {% if product_editor_settings_metafield and product_editor_settings_metafield.value %}
-    productEditorSetting = {{ product_editor_settings_metafield.value | json }};
   {% endif %}
 
   window.__EDITOR_PRODUCT_CONFIG__ = Object.assign(
@@ -58,7 +57,6 @@
       appUrl: '{{ block.settings.app_url | escape }}',
       shop: '{{ shop.permanent_domain }}',
       variantMetafields: variantMetafieldsMap,
-      productEditorSetting: productEditorSetting,
     },
   );
   window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;

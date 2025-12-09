@@ -57,6 +57,13 @@ const PRODUCT_VARIANTS_QUERY = `
                             type
                             value
                         }
+                        editorTypeMetafield: metafield(namespace: "custom", key: "editor_type") {
+                            id
+                            namespace
+                            key
+                            type
+                            value
+                        }
                         useImageUploadsMetafield: metafield(namespace: "custom", key: "use_image_uploads") {
                             id
                             namespace
@@ -163,6 +170,7 @@ function PelemanProductEditorSettings() {
     const [sheetsMax, setSheetsMax] = useState("");
     const [includedPages, setIncludedPages] = useState("");
     const [productUnitCode, setProductUnitCode] = useState("");
+    const [editorType, setEditorType] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     // Accordion state for settings sections
     const [isEditorActivateOpen, setIsEditorActivateOpen] = useState(true);
@@ -189,6 +197,25 @@ function PelemanProductEditorSettings() {
             const variantEdges = response.data?.product?.variants?.edges || [];
             const variantsData = variantEdges.map((edge) => {
                 const variant = edge.node;
+
+                // Normalise editor type metafield value.
+                // When defined as a list, Shopify returns a JSON array string like
+                // '["No Customisation"]'. We want a simple string value.
+                let editorTypeValue = "";
+                const rawEditorType = variant.editorTypeMetafield?.value;
+                if (rawEditorType) {
+                    try {
+                        const parsed = JSON.parse(rawEditorType);
+                        if (Array.isArray(parsed)) {
+                            editorTypeValue = parsed[0] || "";
+                        } else if (parsed != null) {
+                            editorTypeValue = String(parsed);
+                        }
+                    } catch {
+                        editorTypeValue = rawEditorType || "";
+                    }
+                }
+
                 return {
                     id: variant.id,
                     title: variant.title,
@@ -203,6 +230,8 @@ function PelemanProductEditorSettings() {
                     personalisationsMetafieldId: variant.personalisationsMetafield?.id || null,
                     f2dArticleCode: variant.f2dArticleCodeMetafield?.value || "",
                     f2dArticleCodeMetafieldId: variant.f2dArticleCodeMetafield?.id || null,
+                    editorType: editorTypeValue,
+                    editorTypeMetafieldId: variant.editorTypeMetafield?.id || null,
                     useImageUploads:
                         variant.useImageUploadsMetafield?.value === "true" ||
                         variant.useImageUploadsMetafield?.value === true ||
@@ -226,6 +255,13 @@ function PelemanProductEditorSettings() {
                     productUnitCodeMetafieldId: variant.productUnitCodeMetafield?.id || null,
                 };
             });
+
+            if (!selectedVariantId) {
+                console.log("[Peleman] Variant editor types", variantsData.map((v) => ({
+                    id: v.id,
+                    editorType: v.editorType,
+                })));
+            }
 
             setVariants(variantsData);
 
@@ -271,6 +307,7 @@ function PelemanProductEditorSettings() {
                 setSheetsMax(selectedVariant.sheetsMax || "");
                 setIncludedPages(selectedVariant.includedPages || "");
                 setProductUnitCode(selectedVariant.productUnitCode || "");
+                setEditorType(selectedVariant.editorType || "");
             }
         }
     }, [selectedVariantId, variants]);
@@ -424,6 +461,25 @@ function PelemanProductEditorSettings() {
                     ownerId: selectedVariantId,
                     namespace: "custom",
                     key: "f2d_article_code",
+                });
+            }
+
+            // Editor type (No Customisation / Peleman Image Editor)
+            // Metafield is defined as a list, so we must send a JSON array
+            // value and use the "list.single_line_text_field" type.
+            if (editorType.trim()) {
+                metafields.push({
+                    ownerId: selectedVariantId,
+                    namespace: "custom",
+                    key: "editor_type",
+                    type: "list.single_line_text_field",
+                    value: JSON.stringify([editorType.trim()]),
+                });
+            } else if (selectedVariant.editorTypeMetafieldId) {
+                metafieldsToDelete.push({
+                    ownerId: selectedVariantId,
+                    namespace: "custom",
+                    key: "editor_type",
                 });
             }
 
@@ -656,11 +712,21 @@ function PelemanProductEditorSettings() {
                                 Editor Activate
                             </Text>
                             <BlockStack spacing="tight">
-                                <Text size="small">
-                                    Configure whether the Peleman editor is activated for
-                                    this product. You can add activation-specific options
-                                    here in the future.
-                                </Text>
+                                <Select
+                                    label="Editor type"
+                                    value={editorType}
+                                    options={[
+                                        { value: "", label: "Use default (no override)" },
+                                        { value: "No Customisation", label: "No Customisation" },
+                                        {
+                                            value: "Peleman Image Editor",
+                                            label: "Peleman Image Editor",
+                                        },
+                                    ]}
+                                    onChange={setEditorType}
+                                    disabled={isSaving}
+                                    helpText="Choose whether this variant uses the Peleman Image Editor."
+                                />
                             </BlockStack>
                         </BlockStack>
                     )}

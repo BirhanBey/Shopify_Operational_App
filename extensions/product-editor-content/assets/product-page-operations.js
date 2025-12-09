@@ -44,45 +44,55 @@
 
   let editorSettings = null;
   let variantInfoMap = {};
-  const productEditorSettingRaw =
-    typeof config.productEditorSetting === "string"
-      ? config.productEditorSetting.trim()
-      : "";
+  // Tracks the most recently used variant ID for which we updated the
+  // product page UI. This helps keep personalisation-related updates
+  // in sync when the customer switches variants.
+  let currentSelectedVariantId = null;
 
-  console.log(`${LOG_PREFIX} [DEBUG] Product editor setting raw value`, {
-    productEditorSettingRaw,
-  });
-
-  function isImageEditorActivated() {
-    if (!productEditorSettingRaw) {
-      console.log(
-        `${LOG_PREFIX} [DEBUG] No product editor setting metafield value found; personalisation dropdown disabled`,
-      );
-      return false;
+  function getVariantConfigById(variantId) {
+    if (!variantId) {
+      return null;
     }
 
-    // Definition (custom.product_editor_type) options:
-    // - "No Customisation"
-    // - "Peleman Image Editor"
-    const normalized = productEditorSettingRaw.trim().toLowerCase();
+    const idString = String(variantId);
+    const gidFormat = idString.includes("/")
+      ? idString
+      : `gid://shopify/ProductVariant/${idString}`;
 
-    if (normalized === "peleman image editor") {
-      console.log(
-        `${LOG_PREFIX} [DEBUG] Product editor setting is "Peleman Image Editor"; personalisation dropdown enabled`,
-      );
-      return true;
+    return (
+      variantMetafieldsMap[idString] ||
+      variantMetafieldsMap[gidFormat] ||
+      null
+    );
+  }
+
+  function isImageEditorActivatedForVariant(variantId) {
+    const variantConfig = getVariantConfigById(variantId);
+
+    if (variantConfig && variantConfig.editorType) {
+      const normalized = String(variantConfig.editorType).trim().toLowerCase();
+
+      if (normalized === "peleman image editor") {
+        console.log(
+          `${LOG_PREFIX} [DEBUG] Variant editorType is "Peleman Image Editor"; editor enabled for variant`,
+          { variantId },
+        );
+        return true;
+      }
+
+      if (normalized === "no customisation") {
+        console.log(
+          `${LOG_PREFIX} [DEBUG] Variant editorType is "No Customisation"; editor disabled for variant`,
+          { variantId },
+        );
+        return false;
+      }
     }
 
-    if (normalized === "no customisation") {
-      console.log(
-        `${LOG_PREFIX} [DEBUG] Product editor setting is "No Customisation"; personalisation dropdown disabled`,
-      );
-      return false;
-    }
-
+    // If no variant-level editor type is configured, default to disabled.
     console.log(
-      `${LOG_PREFIX} [DEBUG] Product editor setting is an unexpected value; personalisation dropdown disabled`,
-      { normalized },
+      `${LOG_PREFIX} [DEBUG] No variant editorType configured; editor disabled for variant`,
+      { variantId },
     );
     return false;
   }
@@ -364,16 +374,10 @@
 
   // Create project reference input field
   function createProjectReferenceInput() {
-    // If the image editor is not activated, do not create or insert any DOM.
-    if (!isImageEditorActivated()) {
-      return null;
-    }
-
     const inputContainer = document.createElement("div");
     inputContainer.id = "project-reference-input-container";
     inputContainer.style.cssText = `
       margin-top: 1rem;
-      margin-bottom: 1rem;
       display: block !important;
       visibility: visible !important;
       opacity: 1 !important;
@@ -422,8 +426,6 @@
     const container = document.createElement("div");
     container.id = "personalisation-dropdown-container";
     container.style.cssText = `
-      margin-top: 0.75rem;
-      margin-bottom: 0.75rem;
       display: block;
       width: 100%;
     `;
@@ -533,7 +535,7 @@
 
     // Add horizontal rules before and after the accordion block
     const topLine = document.createElement("hr");
-    topLine.style.margin = "0.75rem 0 0.5rem 0";
+    topLine.style.margin = "0.75rem 0 0 0";
     topLine.style.borderTop = "1px solid lightgray";
 
     const bottomLine = document.createElement("hr");
@@ -651,10 +653,26 @@
     }
   }
 
-  function ensurePersonalisationDropdown(anchorElement) {
-    if (!isImageEditorActivated()) {
+  function ensurePersonalisationDropdown(anchorElement, selectedVariantId) {
+    const dropdown =
+      document.getElementById("personalisation-dropdown-container");
+    const accordion = document.getElementById(
+      "personalisation-info-accordion-container",
+    );
+
+    const editorActive = isImageEditorActivatedForVariant(selectedVariantId);
+
+    // If editor is not active for this variant, ensure any existing UI is removed.
+    if (!editorActive) {
+      if (dropdown) {
+        dropdown.remove();
+      }
+      if (accordion) {
+        accordion.remove();
+      }
       return;
     }
+
     if (!anchorElement || !anchorElement.parentNode) {
       console.warn(
         `${LOG_PREFIX} [DEBUG] Cannot attach personalisation dropdown, missing anchor element`,
@@ -662,24 +680,25 @@
       return;
     }
 
-    const existing =
-      document.getElementById("personalisation-dropdown-container");
-    if (existing) {
+    if (dropdown) {
       console.log(
         `${LOG_PREFIX} [DEBUG] Personalisation dropdown already present; skipping re-attach`,
       );
       return;
     }
 
-    const dropdown = createPersonalisationDropdown();
-    anchorElement.parentNode.insertBefore(dropdown, anchorElement.nextSibling);
+    const newDropdown = createPersonalisationDropdown();
+    anchorElement.parentNode.insertBefore(
+      newDropdown,
+      anchorElement.nextSibling,
+    );
 
-    const accordion = createPersonalisationInfoAccordion();
-    dropdown.parentNode.insertBefore(accordion, dropdown.nextSibling);
+    const newAccordion = createPersonalisationInfoAccordion();
+    newDropdown.parentNode.insertBefore(newAccordion, newDropdown.nextSibling);
 
     // Attach change listener to keep button label in sync with mode
     const select = /** @type {HTMLSelectElement | null} */ (
-      dropdown.querySelector("#personalisation-select")
+      newDropdown.querySelector("#personalisation-select")
     );
     const form =
       anchorElement.closest("form[action*='/cart/add']") ||
@@ -693,6 +712,15 @@
           { mode },
         );
         updateAddToCartButtonLabelForMode(form, mode);
+
+        // Re-evaluate project reference visibility when personalisation mode changes.
+        // Always use the latest known variant ID instead of the one that was
+        // active when the dropdown was first created.
+        const effectiveVariantId =
+          currentSelectedVariantId || selectedVariantId;
+        if (effectiveVariantId) {
+          updateProjectReferenceInput(effectiveVariantId);
+        }
       };
 
       select.addEventListener("change", handleChange);
@@ -727,15 +755,31 @@
   // Show/hide project reference input based on selected variant
   function updateProjectReferenceInput(selectedVariantId) {
     // Try to find the correct form - look for the one with add to cart button
-    let form = document.querySelector("form[action*='/cart/add'][id*='BuyButtons'], form[action*='/cart/add'].shopify-product-form");
+    let form = document.querySelector(
+      "form[action*='/cart/add'][id*='BuyButtons'], form[action*='/cart/add'].shopify-product-form",
+    );
     if (!form) {
       form = document.querySelector("form[action*='/cart/add']");
     }
-    
+
     if (!form) {
       console.warn(`${LOG_PREFIX} [DEBUG] Cart form not found`);
       return;
     }
+
+    // Persist the currently active variant ID so other UI handlers
+    // (like personalisation dropdown change) can stay in sync without
+    // needing to guess from the DOM again.
+    currentSelectedVariantId = selectedVariantId;
+
+    // Find the main variant-picker element so we can keep the layout
+    // stable regardless of re-renders or personalisation changes.
+    // In some themes the add-to-cart form is not inside the variant-picker,
+    // so we first try closest(), then fall back to a generic query.
+    let variantPicker =
+      form.closest("variant-picker") ||
+      document.querySelector("variant-picker.variant-picker") ||
+      document.querySelector("variant-picker");
 
     // Remove existing input if present
     const existingInput = document.getElementById(
@@ -745,15 +789,25 @@
       existingInput.remove();
     }
 
-    // Check if selected variant has use_project_reference enabled
-    // Try both numeric ID and GID format
-    const gidFormat = selectedVariantId.includes('/') 
-      ? selectedVariantId 
-      : `gid://shopify/ProductVariant/${selectedVariantId}`;
-    
-    let variantData = variantMetafieldsMap[selectedVariantId] || variantMetafieldsMap[gidFormat];
-    
-    const shouldShowProjectReference = variantData?.useProjectReference === true;
+    // Check if selected variant has use_project_reference enabled and a compatible
+    // personalisation mode selected.
+    const variantData = getVariantConfigById(selectedVariantId);
+    const selectedPersonalisation = getCurrentPersonalisationMode();
+    const shouldShowProjectReference =
+      variantData?.useProjectReference === true &&
+      (selectedPersonalisation === "design_online" ||
+        selectedPersonalisation === "design_later");
+    const isEditorActiveForVariant = isImageEditorActivatedForVariant(
+      selectedVariantId,
+    );
+
+    console.log(`${LOG_PREFIX} [DEBUG] Project reference visibility check`, {
+      selectedVariantId,
+      variantData,
+      selectedPersonalisation,
+      shouldShowProjectReference,
+      isEditorActiveForVariant,
+    });
 
     // Find the position to insert input (between variant form and add to cart button)
     // Try multiple selectors for add to cart button
@@ -773,10 +827,6 @@
       if (productFormComponent) {
         addToCartButton = productFormComponent.querySelector('button[name="add"], button[type="submit"]');
       }
-    }
-
-    if (addToCartButton) {
-      // found add to cart button
     }
 
     // Try to find buy-buttons-block span (we want to insert input before it)
@@ -804,33 +854,37 @@
     }
 
     // Try to find product-form-buttons div (fallback option)
-    let productFormButtons = form.querySelector('.product-form-buttons');
+    let productFormButtons = form.querySelector(".product-form-buttons");
     if (!productFormButtons) {
-      const productFormComponent = form.closest('product-form-component');
+      const productFormComponent = form.closest("product-form-component");
       if (productFormComponent) {
-        productFormButtons = productFormComponent.querySelector('.product-form-buttons');
+        productFormButtons =
+          productFormComponent.querySelector(".product-form-buttons");
       }
     }
-    if (!productFormButtons) {
-      if (buyButtonsBlock) {
-        productFormButtons = buyButtonsBlock.querySelector('.product-form-buttons');
-      }
+    if (!productFormButtons && buyButtonsBlock) {
+      productFormButtons = buyButtonsBlock.querySelector(
+        ".product-form-buttons",
+      );
     }
 
-    let projectReferenceAnchor = null;
-
-    if (shouldShowProjectReference) {
+    if (shouldShowProjectReference && isEditorActiveForVariant) {
       const createAndAttachProjectReference = (insertFn) => {
         const inputContainer = createProjectReferenceInput();
         if (!inputContainer) {
           return;
         }
         insertFn(inputContainer);
-        projectReferenceAnchor = inputContainer;
       };
 
-      if (buyButtonsBlock && buyButtonsBlock.parentNode) {
-        // Best option: insert before buy-buttons-block span
+      if (variantPicker) {
+        // Preferred: always append at the end of the variant-picker so its
+        // position stays stable even when modes or other UI change.
+        createAndAttachProjectReference((inputContainer) => {
+          variantPicker.appendChild(inputContainer);
+        });
+      } else if (buyButtonsBlock && buyButtonsBlock.parentNode) {
+        // Fallback: insert before buy-buttons-block span
         createAndAttachProjectReference((inputContainer) => {
           buyButtonsBlock.parentNode.insertBefore(
             inputContainer,
@@ -886,17 +940,12 @@
       );
     }
 
-    // Personalisation dropdown is controlled ONLY by product metafield,
-    // but we try to position it under project reference if available.
-    const personalisationAnchor =
-      projectReferenceAnchor ||
-      buyButtonsBlock ||
-      quantitySelector ||
-      productFormButtons ||
-      addToCartButton ||
-      form;
+    // Personalisation dropdown and accordion should always appear directly
+    // after the variant-picker element, independent from the project
+    // reference input.
+    const personalisationAnchor = variantPicker || form;
 
-    ensurePersonalisationDropdown(personalisationAnchor);
+    ensurePersonalisationDropdown(personalisationAnchor, selectedVariantId);
 
     console.log(
       `${LOG_PREFIX} [DEBUG] Project reference input and personalisation dropdown update complete for variant`,
@@ -1006,10 +1055,16 @@
         return false;
       }
 
-      // If personalisation dropdown is not enabled for this product,
+      const formData = new FormData(form);
+      const variantId =
+        formData.get("id") ||
+        form.querySelector("[name='id']")?.value ||
+        form.querySelector("input[name='id']")?.value;
+
+      // If personalisation dropdown is not enabled for this variant/product,
       // or the user explicitly selected "Design For Me",
       // do NOT intercept; let native add to cart work.
-      const dropdownEnabled = isImageEditorActivated();
+      const dropdownEnabled = isImageEditorActivatedForVariant(variantId);
       const personalisationMode = getCurrentPersonalisationMode();
 
       console.log(
@@ -1017,12 +1072,13 @@
         {
           dropdownEnabled,
           personalisationMode,
+          variantId,
         },
       );
 
       if (!dropdownEnabled) {
         console.log(
-          `${LOG_PREFIX} [DEBUG] Personalisation dropdown disabled for this product; using native add to cart`,
+          `${LOG_PREFIX} [DEBUG] Personalisation dropdown disabled for this variant/product; using native add to cart`,
         );
         return false;
       }
@@ -1057,12 +1113,6 @@
         event.stopPropagation();
         event.stopImmediatePropagation();
       }
-
-      const formData = new FormData(form);
-      const variantId =
-        formData.get("id") ||
-        form.querySelector("[name='id']")?.value ||
-        form.querySelector("input[name='id']")?.value;
 
       const quantity =
         formData.get("quantity") ||
@@ -1208,5 +1258,6 @@
       console.error(`${LOG_PREFIX} [DEBUG] Failed to initialize:`, error);
     });
 })();
+
 
 
