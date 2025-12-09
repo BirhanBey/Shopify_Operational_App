@@ -712,6 +712,7 @@ function PelemanProductEditorSettings() {
                                 Editor Activate
                             </Text>
                             <BlockStack spacing="tight">
+                                <Divider style={{ marginBottom: "1rem" }} />
                                 <Select
                                     label="Editor type"
                                     value={editorType}
@@ -727,6 +728,27 @@ function PelemanProductEditorSettings() {
                                     disabled={isSaving}
                                     helpText="Choose whether this variant uses the Peleman Image Editor."
                                 />
+                                <Checkbox
+                                    checked={useImageUploads}
+                                    onChange={handleUseImageUploadsChange}
+                                    disabled={isSaving}
+                                >
+                                    Use Image Uploads
+                                </Checkbox>
+                                <Checkbox
+                                    checked={useProjectThumbnailInCart}
+                                    onChange={handleUseProjectThumbnailInCartChange}
+                                    disabled={isSaving}
+                                >
+                                    Use Project Thumbnail in Cart
+                                </Checkbox>
+                                <Checkbox
+                                    checked={useProjectReference}
+                                    onChange={handleUseProjectReferenceChange}
+                                    disabled={isSaving}
+                                >
+                                    Use Project Reference
+                                </Checkbox>
                             </BlockStack>
                         </BlockStack>
                     )}
@@ -768,27 +790,6 @@ function PelemanProductEditorSettings() {
                                     disabled={isSaving}
                                     helpText="Enter personalisations value (e.g., f2d)"
                                 />
-                                <Checkbox
-                                    checked={useImageUploads}
-                                    onChange={handleUseImageUploadsChange}
-                                    disabled={isSaving}
-                                >
-                                    Use Image Uploads
-                                </Checkbox>
-                                <Checkbox
-                                    checked={useProjectThumbnailInCart}
-                                    onChange={handleUseProjectThumbnailInCartChange}
-                                    disabled={isSaving}
-                                >
-                                    Use Project Thumbnail in Cart
-                                </Checkbox>
-                                <Checkbox
-                                    checked={useProjectReference}
-                                    onChange={handleUseProjectReferenceChange}
-                                    disabled={isSaving}
-                                >
-                                    Use Project Reference
-                                </Checkbox>
                             </BlockStack>
                         </BlockStack>
                     )}
