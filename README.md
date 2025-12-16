@@ -1,225 +1,511 @@
-# Shopify App Template - React Router
+# 🎨 Peleman Editor Connection App
 
-This is a template for building a [Shopify app](https://shopify.dev/docs/apps/getting-started) using [React Router](https://reactrouter.com/).  It was forked from the [Shopify Remix app template](https://github.com/Shopify/shopify-app-template-remix) and converted to React Router.
+<div align="center">
 
-Rather than cloning this repo, follow the [Quick Start steps](https://github.com/Shopify/shopify-app-template-react-router#quick-start).
+![Shopify](https://img.shields.io/badge/Shopify-7AB55C?style=for-the-badge&logo=shopify&logoColor=white)
+![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
 
-Visit the [`shopify.dev` documentation](https://shopify.dev/docs/api/shopify-app-react-router) for more details on the React Router app package.
+**Seamlessly integrate Peleman Editor into your Shopify store for enhanced product customization**
 
-## Upgrading from Remix
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Deployment](#-deployment) • [API Reference](#-api-reference)
 
-If you have an existing Remix app that you want to upgrade to React Router, please follow the [upgrade guide](https://github.com/Shopify/shopify-app-template-react-router/wiki/Upgrading-from-Remix).  Otherwise, please follow the quick start guide below.
+</div>
 
-## Quick start
+---
 
-### Prerequisites
+## 📋 Table of Contents
 
-Before you begin, you'll need the following:
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [API Reference](#-api-reference)
+- [Deployment](#-deployment)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-1. **Node.js**: [Download and install](https://nodejs.org/en/download/) it if you haven't already.
-2. **Shopify Partner Account**: [Create an account](https://partners.shopify.com/signup) if you don't have one.
-3. **Test Store**: Set up either a [development store](https://help.shopify.com/en/partners/dashboard/development-stores#create-a-development-store) or a [Shopify Plus sandbox store](https://help.shopify.com/en/partners/dashboard/managing-stores/plus-sandbox-store) for testing your app.
-4. **Shopify CLI**: [Download and install](https://shopify.dev/docs/apps/tools/cli/getting-started) it if you haven't already.
-```shell
-npm install -g @shopify/cli@latest
+---
+
+## 🎯 Overview
+
+**Peleman Editor Connection App** is a powerful Shopify application that bridges the gap between your Shopify store and the Peleman Editor platform. It enables merchants to offer advanced product customization capabilities directly within their Shopify storefront, allowing customers to personalize products with images, text, and design elements before adding them to cart.
+
+### What This App Does
+
+- 🔗 **Seamless Integration**: Connects Shopify products with Peleman Editor
+- 🛍️ **Enhanced Shopping Experience**: Customers can customize products before purchase
+- 📸 **Project Thumbnails**: Displays project previews in the cart
+- ⚙️ **Flexible Configuration**: Per-variant editor settings and personalization options
+- 🎨 **Dynamic UI**: Smart product page enhancements based on variant settings
+
+---
+
+## ✨ Features
+
+### 🛒 Product Page Operations
+- **Editor Integration**: Automatic redirect to Peleman Editor when adding customizable products to cart
+- **Personalization Modes**: Support for multiple personalization options:
+  - `design_online`: Design immediately in the editor
+  - `design_later`: Add to cart and design later
+  - `design_for_me`: Request custom design service
+- **Project Reference**: Optional project reference input for tracking customer projects
+- **Variant-Specific Settings**: Enable/disable editor features per product variant via metafields
+
+### 🛍️ Cart Page Operations
+- **Project Thumbnails**: Display project preview images in the cart
+- **Project Details**: Show detailed project information for customized items
+- **Seamless Updates**: Real-time cart updates with project information
+
+### ⚙️ Admin Settings
+- **Editor Configuration**: Configure editor API keys and domain settings
+- **Feature Toggles**: Enable/disable features like:
+  - Image uploads
+  - Project thumbnails in cart
+  - Project reference input
+- **Variant Management**: Set editor preferences per product variant
+
+### 🔐 Security & Performance
+- **OAuth Authentication**: Secure Shopify OAuth flow
+- **Session Management**: Prisma-based session storage
+- **CORS Support**: Proper CORS headers for theme extension access
+- **Error Handling**: Comprehensive error handling and logging
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| **Framework** | React Router v7 |
+| **Backend** | Node.js (v20.19+ or v22.12+) |
+| **Database** | PostgreSQL with Prisma ORM |
+| **Shopify** | Shopify App Bridge, Polaris UI |
+| **Theme Extensions** | Liquid templates, JavaScript |
+| **Deployment** | Render.com (or any Node.js host) |
+
+### Key Dependencies
+
+- `@shopify/shopify-app-react-router` - Shopify app framework
+- `@react-router/dev` - React Router development tools
+- `@prisma/client` - Database ORM
+- `@shopify/app-bridge-react` - Shopify App Bridge components
+- `@shopify/ui-extensions-react` - Shopify UI extensions
+
+---
+
+## 📦 Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js**: v20.19+ or v22.12+ ([Download](https://nodejs.org/))
+- **npm** or **yarn** or **pnpm** package manager
+- **Shopify CLI**: Latest version ([Install Guide](https://shopify.dev/docs/apps/tools/cli/getting-started))
+- **Shopify Partner Account**: [Create one here](https://partners.shopify.com/signup)
+- **Development Store**: [Create a dev store](https://help.shopify.com/en/partners/dashboard/development-stores#create-a-development-store)
+- **PostgreSQL Database**: For production (SQLite works for local dev)
+
+---
+
+## 🚀 Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-org/peleman-editor-connection-app.git
+cd peleman-editor-connection-app
 ```
 
-### Setup
+### 2. Install Dependencies
 
-```shell
-shopify app init --template=https://github.com/Shopify/shopify-app-template-react-router
+```bash
+npm install
 ```
 
-### Local Development
+### 3. Set Up Environment Variables
 
-```shell
-shopify app dev
+Create a `.env` file in the root directory:
+
+```env
+# Shopify App Configuration
+SHOPIFY_API_KEY=your_api_key_here
+SHOPIFY_API_SECRET=your_api_secret_here
+SHOPIFY_APP_URL=http://localhost:3000
+SCOPES=read_products,write_products
+
+# Database Configuration
+DATABASE_URL="postgresql://user:password@localhost:5432/peleman_editor_db"
+
+# Environment
+NODE_ENV=development
 ```
 
-Press P to open the URL to your app. Once you click install, you can start development.
+> **Note**: For local development, you can use SQLite by changing the `DATABASE_URL` in `prisma/schema.prisma` to `"file:./dev.db"`.
 
-Local development is powered by [the Shopify CLI](https://shopify.dev/docs/apps/tools/cli). It logs into your partners account, connects to an app, provides environment variables, updates remote config, creates a tunnel and provides commands to generate extensions.
+### 4. Set Up Database
 
-### Authenticating and querying data
+```bash
+# Generate Prisma Client
+npx prisma generate
 
-To authenticate and query data you can use the `shopify` const that is exported from `/app/shopify.server.js`:
+# Run migrations
+npx prisma migrate dev
+```
 
-```js
-export async function loader({ request }) {
-  const { admin } = await shopify.authenticate.admin(request);
+### 5. Start Development Server
 
-  const response = await admin.graphql(`
-    {
-      products(first: 25) {
-        nodes {
-          title
-          description
-        }
-      }
-    }`);
+```bash
+npm run dev
+```
 
-  const {
-    data: {
-      products: { nodes },
-    },
-  } = await response.json();
+This will:
+- Start the Shopify CLI development server
+- Create a tunnel for local development
+- Open the app in your browser
+- Watch for file changes
 
-  return nodes;
+---
+
+## ⚙️ Configuration
+
+### Shopify Partner Dashboard Setup
+
+1. **Create App**: Go to [Shopify Partner Dashboard](https://partners.shopify.com/) → Apps → Create App
+2. **Configure URLs**:
+   - **App URL**: Your production URL (e.g., `https://your-app.onrender.com`)
+   - **Allowed redirection URLs**: `https://your-app.onrender.com/auth/callback`
+3. **Set API Scopes**: 
+   - `read_products`
+   - `write_products`
+4. **Get Credentials**: Copy API Key and Secret to your `.env` file
+
+### App Settings Configuration
+
+After installing the app in your store:
+
+1. Navigate to the app in Shopify Admin
+2. Go to **Editor Activate** tab
+3. Configure:
+   - **Editor API Key**: Your Peleman Editor API key
+   - **Editor Domain**: Your Peleman Editor domain (e.g., `https://editor-staging.peleman.com`)
+   - **Editor Customer ID**: Your customer ID (optional)
+4. Enable features:
+   - ✅ Use Image Uploads
+   - ✅ Use Project Thumbnail in Cart
+   - ✅ Use Project Reference
+
+### Product Variant Configuration
+
+Configure editor settings per variant using Shopify metafields:
+
+1. Go to **Products** → Select a product → **Variants**
+2. Add metafields:
+   - `custom.editor_type`: Editor type (e.g., "Peleman Image Editor")
+   - `custom.use_project_reference`: Boolean (true/false)
+   - `custom.use_image_uploads`: Boolean (true/false)
+   - `custom.use_project_thumbnail`: Boolean (true/false)
+
+---
+
+## 📖 Usage
+
+### Theme Extension Setup
+
+1. **Install the App**: Install the app in your Shopify store
+2. **Enable Theme Extensions**:
+   - Go to **Online Store** → **Themes** → **Customize**
+   - Navigate to **App embeds**
+   - Enable **Product Editor Content** block
+   - Configure the **App URL** setting
+
+### Product Page Flow
+
+1. Customer visits a product page with editor-enabled variants
+2. Selects a variant (if multiple variants available)
+3. Chooses personalization mode:
+   - **Design Online**: Redirects to editor immediately
+   - **Design Later**: Adds to cart, can design later
+   - **Design For Me**: Adds to cart with design request
+4. If "Design Online" or "Design Later" selected:
+   - Project is created via Peleman Editor API
+   - Customer is redirected to editor
+   - After editing, returns to cart with project ID
+
+### Cart Page Features
+
+- **Project Thumbnails**: Customized products show preview images
+- **Project Details**: Click to view/edit project information
+- **Seamless Updates**: Cart updates automatically with project data
+
+---
+
+## 📁 Project Structure
+
+```
+peleman-editor-connection-app/
+├── app/                          # Main application code
+│   ├── routes/                   # React Router routes
+│   │   ├── api.*.jsx            # API endpoints
+│   │   ├── app.*.jsx            # Admin app pages
+│   │   └── webhooks.*.jsx       # Webhook handlers
+│   ├── shopify.server.js        # Shopify app configuration
+│   └── db.server.js             # Prisma database client
+├── extensions/                   # Shopify app extensions
+│   ├── product-editor-content/  # Theme app extension
+│   │   ├── assets/              # JavaScript files
+│   │   │   ├── product-page-operations.js
+│   │   │   └── cart-page-operations.js
+│   │   └── blocks/              # Liquid templates
+│   │       ├── product-page-operations-embed.liquid
+│   │       └── cart-page-operations-embed.liquid
+│   └── peleman-product-editor-settings/  # Admin UI extension
+│       └── src/
+│           └── Index.jsx        # Settings page component
+├── prisma/                       # Database schema and migrations
+│   ├── schema.prisma           # Prisma schema
+│   └── migrations/             # Database migrations
+├── public/                      # Static assets
+├── shopify.app.toml             # Shopify app configuration
+├── package.json                 # Dependencies and scripts
+└── README.md                    # This file
+```
+
+---
+
+## 🔌 API Reference
+
+### Editor Settings API
+
+**GET** `/api/editor-settings?shop={shop_domain}`
+
+Returns editor configuration for a shop.
+
+**Response:**
+```json
+{
+  "settings": {
+    "editorApiKey": "your_api_key",
+    "editorDomain": "https://editor.example.com",
+    "editorCustomerId": "customer_id"
+  }
 }
 ```
 
-This template comes pre-configured with examples of:
+### Project Details API
 
-1. Setting up your Shopify app in [/app/shopify.server.ts](https://github.com/Shopify/shopify-app-template-react-router/blob/main/app/shopify.server.ts)
-2. Querying data using Graphql. Please see: [/app/routes/app.\_index.tsx](https://github.com/Shopify/shopify-app-template-react-router/blob/main/app/routes/app._index.tsx).
-3. Responding to webhooks. Please see [/app/routes/webhooks.tsx](https://github.com/Shopify/shopify-app-template-react-router/blob/main/app/routes/webhooks.app.uninstalled.tsx).
+**GET** `/api/project-details?shop={shop_domain}&projectId={project_id}`
 
-Please read the [documentation for @shopify/shopify-app-react-router](https://shopify.dev/docs/api/shopify-app-react-router) to see what other API's are available.
+Returns project details for a given project ID.
 
-## Shopify Dev MCP
-
-This template is configured with the Shopify Dev MCP. This instructs [Cursor](https://cursor.com/), [GitHub Copilot](https://github.com/features/copilot) and [Claude Code](https://claude.com/product/claude-code) and [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) to use the Shopify Dev MCP.  
-
-For more information on the Shopify Dev MCP please read [the  documentation](https://shopify.dev/docs/apps/build/devmcp).
-
-## Deployment
-
-### Application Storage
-
-This template uses [Prisma](https://www.prisma.io/) to store session data, by default using an [SQLite](https://www.sqlite.org/index.html) database.
-The database is defined as a Prisma schema in `prisma/schema.prisma`.
-
-This use of SQLite works in production if your app runs as a single instance.
-The database that works best for you depends on the data your app needs and how it is queried.
-Here’s a short list of databases providers that provide a free tier to get started:
-
-| Database   | Type             | Hosters                                                                                                                                                                                                                               |
-| ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MySQL      | SQL              | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mysql), [Planet Scale](https://planetscale.com/), [Amazon Aurora](https://aws.amazon.com/rds/aurora/), [Google Cloud SQL](https://cloud.google.com/sql/docs/mysql) |
-| PostgreSQL | SQL              | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-postgresql), [Amazon Aurora](https://aws.amazon.com/rds/aurora/), [Google Cloud SQL](https://cloud.google.com/sql/docs/postgres)                                   |
-| Redis      | Key-value        | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-redis), [Amazon MemoryDB](https://aws.amazon.com/memorydb/)                                                                                                        |
-| MongoDB    | NoSQL / Document | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mongodb), [MongoDB Atlas](https://www.mongodb.com/atlas/database)                                                                                                  |
-
-To use one of these, you can use a different [datasource provider](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#datasource) in your `schema.prisma` file, or a different [SessionStorage adapter package](https://github.com/Shopify/shopify-api-js/blob/main/packages/shopify-api/docs/guides/session-storage.md).
-
-### Build
-
-Build the app by running the command below with the package manager of your choice:
-
-Using yarn:
-
-```shell
-yarn build
+**Response:**
+```json
+{
+  "project": {
+    "id": "project_id",
+    "name": "Project Name",
+    "thumbnail": "https://thumbnail.url",
+    // ... other project fields
+  }
+}
 ```
 
-Using npm:
+### Project Thumbnail API
 
-```shell
-npm run build
+**GET** `/api/project-thumbnail?shop={shop_domain}&projectId={project_id}`
+
+Returns project thumbnail image URL.
+
+**Response:**
+```json
+{
+  "thumbnail": "https://thumbnail.url"
+}
 ```
 
-Using pnpm:
+### Variant Metafields API
 
-```shell
-pnpm run build
+**GET** `/api/variant-metafields?shop={shop_domain}&variantId={variant_id}`
+
+Returns editor-related metafields for a variant.
+
+**Response:**
+```json
+{
+  "variantData": {
+    "editorType": "Peleman Image Editor",
+    "useProjectReference": true,
+    "useImageUploads": true,
+    "useProjectThumbnail": true
+  }
+}
 ```
 
-## Hosting
+### Create Project API
 
-When you're ready to set up your app in production, you can follow [our deployment documentation](https://shopify.dev/docs/apps/deployment/web) to host your app on a cloud provider like [Heroku](https://www.heroku.com/) or [Fly.io](https://fly.io/).
+**POST** `/api/create-project`
 
-When you reach the step for [setting up environment variables](https://shopify.dev/docs/apps/deployment/web#set-env-vars), you also need to set the variable `NODE_ENV=production`.
+Creates a new project in Peleman Editor.
 
-
-## Gotchas / Troubleshooting
-
-### Database tables don't exist
-
-If you get an error like:
-
-```
-The table `main.Session` does not exist in the current database.
+**Request Body:**
+```json
+{
+  "shop": "shop_domain",
+  "variantId": "variant_id",
+  "quantity": 1
+}
 ```
 
-Create the database for Prisma. Run the `setup` script in `package.json` using `npm`, `yarn` or `pnpm`.
+---
 
-### Navigating/redirecting breaks an embedded app
+## 🚢 Deployment
 
-Embedded apps must maintain the user session, which can be tricky inside an iFrame. To avoid issues:
+### Deploy to Render.com
 
-1. Use `Link` from `react-router` or `@shopify/polaris`. Do not use `<a>`.
-2. Use `redirect` returned from `authenticate.admin`. Do not use `redirect` from `react-router`
-3. Use `useSubmit` from `react-router`.
+1. **Connect Repository**:
+   - Go to [Render Dashboard](https://dashboard.render.com/)
+   - Click **New** → **Web Service**
+   - Connect your GitHub repository
 
-This only applies if your app is embedded, which it will be by default.
+2. **Configure Service**:
+   - **Name**: `peleman-editor-connection-app`
+   - **Environment**: `Node`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm run start`
 
-### Webhooks: shop-specific webhook subscriptions aren't updated
+3. **Set Environment Variables**:
+   ```
+   SHOPIFY_API_KEY=your_api_key
+   SHOPIFY_API_SECRET=your_api_secret
+   SHOPIFY_APP_URL=https://your-app.onrender.com
+   SCOPES=read_products,write_products
+   DATABASE_URL=postgresql://user:pass@host:5432/dbname
+   NODE_ENV=production
+   ```
 
-If you are registering webhooks in the `afterAuth` hook, using `shopify.registerWebhooks`, you may find that your subscriptions aren't being updated.  
+4. **Create PostgreSQL Database**:
+   - In Render Dashboard, create a new PostgreSQL database
+   - Copy the connection string to `DATABASE_URL`
 
-Instead of using the `afterAuth` hook declare app-specific webhooks in the `shopify.app.toml` file.  This approach is easier since Shopify will automatically sync changes every time you run `deploy` (e.g: `npm run deploy`).  Please read these guides to understand more:
+5. **Update Shopify Partner Dashboard**:
+   - Update App URL to your Render URL
+   - Update Redirect URLs to include your Render callback URL
 
-1. [app-specific vs shop-specific webhooks](https://shopify.dev/docs/apps/build/webhooks/subscribe#app-specific-subscriptions)
-2. [Create a subscription tutorial](https://shopify.dev/docs/apps/build/webhooks/subscribe/get-started?deliveryMethod=https)
+### Deploy to Other Platforms
 
-If you do need shop-specific webhooks, keep in mind that the package calls `afterAuth` in 2 scenarios:
+The app can be deployed to any Node.js hosting platform:
+- **Heroku**: Follow [Shopify deployment guide](https://shopify.dev/docs/apps/deployment/web)
+- **Fly.io**: Similar setup to Render
+- **Railway**: Automatic deployment from GitHub
+- **AWS/GCP/Azure**: Use containerized deployment
 
-- After installing the app
-- When an access token expires
+---
 
-During normal development, the app won't need to re-authenticate most of the time, so shop-specific subscriptions aren't updated. To force your app to update the subscriptions, uninstall and reinstall the app. Revisiting the app will call the `afterAuth` hook.
+## 🔧 Troubleshooting
 
-### Webhooks: Admin created webhook failing HMAC validation
+### Database Tables Don't Exist
 
-Webhooks subscriptions created in the [Shopify admin](https://help.shopify.com/en/manual/orders/notifications/webhooks) will fail HMAC validation. This is because the webhook payload is not signed with your app's secret key.  
+**Error**: `The table main.Session does not exist`
 
-The recommended solution is to use [app-specific webhooks](https://shopify.dev/docs/apps/build/webhooks/subscribe#app-specific-subscriptions) defined in your toml file instead.  Test your webhooks by triggering events manually in the Shopify admin(e.g. Updating the product title to trigger a `PRODUCTS_UPDATE`).
+**Solution**:
+```bash
+npm run setup
+# or
+npx prisma migrate deploy
+```
 
-### Webhooks: Admin object undefined on webhook events triggered by the CLI
+### App Preview Errors
 
-When you trigger a webhook event using the Shopify CLI, the `admin` object will be `undefined`. This is because the CLI triggers an event with a valid, but non-existent, shop. The `admin` object is only available when the webhook is triggered by a shop that has installed the app.  This is expected.
+**Error**: `You cannot add module because this app already has the maximum number of 1 module allowed`
 
-Webhooks triggered by the CLI are intended for initial experimentation testing of your webhook configuration. For more information on how to test your webhooks, see the [Shopify CLI documentation](https://shopify.dev/docs/apps/tools/cli/commands#webhook-trigger).
+**Solution**: This is a Shopify CLI limitation. The extensions still build correctly. You can:
+- Ignore the error (extensions work in theme editor)
+- Temporarily disable other theme extensions for testing
 
-### Incorrect GraphQL Hints
+### OAuth Errors
 
-By default the [graphql.vscode-graphql](https://marketplace.visualstudio.com/items?itemName=GraphQL.vscode-graphql) extension for will assume that GraphQL queries or mutations are for the [Shopify Admin API](https://shopify.dev/docs/api/admin). This is a sensible default, but it may not be true if:
+**Error**: `failed_grant_with_invalid_scopes`
 
-1. You use another Shopify API such as the storefront API.
-2. You use a third party GraphQL API.
+**Solution**:
+1. Ensure `SCOPES` in `.env` matches `shopify.app.toml`
+2. Ensure scopes in Partner Dashboard match exactly
+3. Create a new app version or run `shopify app deploy`
 
-If so, please update [.graphqlrc.ts](https://github.com/Shopify/shopify-app-template-react-router/blob/main/.graphqlrc.ts).
+### Editor Settings Not Loading
 
-### Using Defer & await for streaming responses
+**Error**: "Editor settings are not configured"
 
-By default the CLI uses a cloudflare tunnel. Unfortunately  cloudflare tunnels wait for the Response stream to finish, then sends one chunk.  This will not affect production.
+**Solution**:
+1. Open the app in Shopify Admin
+2. Navigate to **Editor Activate** tab
+3. Enter and save Editor API Key and Editor Domain
 
-To test [streaming using await](https://reactrouter.com/api/components/Await#await) during local development we recommend [localhost based development](https://shopify.dev/docs/apps/build/cli-for-apps/networking-options#localhost-based-development).
+### CORS Errors
 
-### "nbf" claim timestamp check failed
+**Error**: CORS policy blocking requests from theme
 
-This is because a JWT token is expired.  If you  are consistently getting this error, it could be that the clock on your machine is not in sync with the server.  To fix this ensure you have enabled "Set time and date automatically" in the "Date and Time" settings on your computer.
+**Solution**: The app includes CORS headers. Ensure:
+- App URL is correctly configured
+- Theme extension is properly installed
+- Shop domain matches in API calls
 
-### Using MongoDB and Prisma
+---
 
-If you choose to use MongoDB with Prisma, there are some gotchas in Prisma's MongoDB support to be aware of. Please see the [Prisma SessionStorage README](https://www.npmjs.com/package/@shopify/shopify-app-session-storage-prisma#mongodb).
+## 🤝 Contributing
 
-## Resources
+Contributions are welcome! Please follow these steps:
 
-React Router:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-- [React Router docs](https://reactrouter.com/home)
+### Development Guidelines
 
-Shopify:
+- Follow existing code patterns and conventions
+- Write clear, descriptive comments in English
+- Use meaningful variable and function names
+- Test your changes thoroughly
+- Update documentation as needed
 
-- [Intro to Shopify apps](https://shopify.dev/docs/apps/getting-started)
-- [Shopify App React Router docs](https://shopify.dev/docs/api/shopify-app-react-router)
-- [Shopify CLI](https://shopify.dev/docs/apps/tools/cli)
-- [Shopify App Bridge](https://shopify.dev/docs/api/app-bridge-library).
-- [Polaris Web Components](https://shopify.dev/docs/api/app-home/polaris-web-components).
-- [App extensions](https://shopify.dev/docs/apps/app-extensions/list)
-- [Shopify Functions](https://shopify.dev/docs/api/functions)
+---
 
-Internationalization:
+## 📄 License
 
-- [Internationalizing your app](https://shopify.dev/docs/apps/best-practices/internationalization/getting-started)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 📞 Support
+
+For issues, questions, or contributions:
+
+- **GitHub Issues**: [Open an issue](https://github.com/your-org/peleman-editor-connection-app/issues)
+- **Email**: support@example.com
+- **Documentation**: [Full Documentation](https://docs.example.com)
+
+---
+
+## 🙏 Acknowledgments
+
+- Built with [Shopify App Template](https://github.com/Shopify/shopify-app-template-react-router)
+- Powered by [React Router](https://reactrouter.com/)
+- Database management with [Prisma](https://www.prisma.io/)
+- UI components from [Shopify Polaris](https://polaris.shopify.com/)
+
+---
+
+<div align="center">
+
+**Made with ❤️ for Shopify Merchants**
+
+⭐ Star this repo if you find it helpful!
+
+</div>
