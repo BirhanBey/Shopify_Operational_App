@@ -3,16 +3,6 @@
   Injects config and loads product page script
 {%- endcomment -%}
 
-<style>
-  /* Disable fly-to-cart animation */
-  fly-to-cart {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-</style>
-
 <script>
   // Build variant metafields map from liquid
   const variantMetafieldsMap = {};
@@ -71,53 +61,15 @@
   );
   window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;
 
-  // Disable fly-to-cart animation
+  // Disable fly-to-cart animation by intercepting appendChild
   (function() {
-    // Remove existing fly-to-cart elements
-    function removeFlyToCart() {
-      const flyToCartElements = document.querySelectorAll('fly-to-cart');
-      flyToCartElements.forEach(el => el.remove());
-    }
-
-    // Remove immediately if DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', removeFlyToCart);
-    } else {
-      removeFlyToCart();
-    }
-
-    // Use MutationObserver to remove fly-to-cart elements as they are added
-    const observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        mutation.addedNodes.forEach(function(node) {
-          if (node.nodeType === 1) { // Element node
-            if (node.tagName === 'FLY-TO-CART') {
-              node.remove();
-            }
-            // Also check for fly-to-cart elements within added nodes
-            const flyToCartElements = node.querySelectorAll && node.querySelectorAll('fly-to-cart');
-            if (flyToCartElements) {
-              flyToCartElements.forEach(el => el.remove());
-            }
-          }
-        });
-      });
-    });
-
-    // Start observing when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
-      });
-    } else {
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    }
+    const originalAppendChild = document.body.appendChild;
+    document.body.appendChild = function(node) {
+      if (node && node.tagName === 'FLY-TO-CART') {
+        return node; // Return without appending
+      }
+      return originalAppendChild.call(this, node);
+    };
   })();
 </script>
 <script src="{{ 'product-page-operations.js' | asset_url }}" defer></script>

@@ -488,7 +488,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For issues, questions, or contributions:
 
 - **GitHub Issues**: [Open an issue](https://github.com/your-org/peleman-editor-connection-app/issues)
-- **Email**: support@example.com
+- **Email**: birhanyorukoglu@gmail.com
 - **Documentation**: [Full Documentation](https://docs.example.com)
 
 ---
