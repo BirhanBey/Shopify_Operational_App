@@ -62,15 +62,20 @@
   window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;
 
   // Disable fly-to-cart animation by intercepting appendChild
-  (function() {
-    const originalAppendChild = document.body.appendChild;
-    document.body.appendChild = function(node) {
-      if (node && node.tagName === 'FLY-TO-CART') {
-        return node; // Return without appending
-      }
-      return originalAppendChild.call(this, node);
-    };
-  })();
+  
+  // Edit theme -> left menu Settings -> Animations -> add to cart -> disable
+  // or
+  
+
+  // (function() {
+  //   const originalAppendChild = document.body.appendChild;
+  //   document.body.appendChild = function(node) {
+  //     if (node && node.tagName === 'FLY-TO-CART') {
+  //       return node; // Return without appending
+  //     }
+  //     return originalAppendChild.call(this, node);
+  //   };
+  // })();
 </script>
 <script src="{{ 'product-page-operations.js' | asset_url }}" defer></script>
 
