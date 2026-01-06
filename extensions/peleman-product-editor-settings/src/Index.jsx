@@ -661,56 +661,47 @@ function PelemanProductEditorSettings() {
             {selectedVariantId && (
                 <BlockStack spacing="base">
                     <Divider />
-                    <InlineStack spacing="tight">
+                    <InlineStack spacing="none" style={{ marginTop: "30px" }}>
                         <Button
                             kind={isEditorActivateOpen ? "primary" : "secondary"}
                             onPress={() => {
-                                const next = !isEditorActivateOpen;
-                                setIsEditorActivateOpen(next);
-                                if (next) {
-                                    setIsEditorSettingsOpen(false);
-                                    setIsAdditionalSettingsOpen(false);
-                                }
+                                setIsEditorActivateOpen(true);
+                                setIsEditorSettingsOpen(false);
+                                setIsAdditionalSettingsOpen(false);
                             }}
                         >
-                            {isEditorActivateOpen ? "▼" : "▶"} Editor Activate
+                            Editor Activate
                         </Button>
                         <Button
                             kind={isEditorSettingsOpen ? "primary" : "secondary"}
                             onPress={() => {
-                                const next = !isEditorSettingsOpen;
-                                setIsEditorSettingsOpen(next);
-                                if (next) {
-                                    setIsEditorActivateOpen(false);
-                                    setIsAdditionalSettingsOpen(false);
-                                }
+                                setIsEditorActivateOpen(false);
+                                setIsEditorSettingsOpen(true);
+                                setIsAdditionalSettingsOpen(false);
                             }}
                         >
-                            {isEditorSettingsOpen ? "▼" : "▶"} Editor Settings
+                            Editor Settings
                         </Button>
                         <Button
                             kind={isAdditionalSettingsOpen ? "primary" : "secondary"}
                             onPress={() => {
-                                const next = !isAdditionalSettingsOpen;
-                                setIsAdditionalSettingsOpen(next);
-                                if (next) {
-                                    setIsEditorActivateOpen(false);
-                                    setIsEditorSettingsOpen(false);
-                                }
+                                setIsEditorActivateOpen(false);
+                                setIsEditorSettingsOpen(false);
+                                setIsAdditionalSettingsOpen(true);
                             }}
                         >
-                            {isAdditionalSettingsOpen ? "▼" : "▶"} Additional Settings
+                            Additional Settings
                         </Button>
                     </InlineStack>
                     {isEditorActivateOpen && (
                         <BlockStack spacing="base">
-                            <Text
+                            {/* <Text
                                 size="extraLarge"
                                 emphasis="bold"
                                 alignment="center"
                             >
                                 Editor Activate
-                            </Text>
+                            </Text> */}
                             <BlockStack spacing="tight">
                                 <Divider style={{ marginBottom: "1rem" }} />
                                 <Select
@@ -754,61 +745,61 @@ function PelemanProductEditorSettings() {
                     )}
                     {isEditorSettingsOpen && (
                         <BlockStack spacing="base">
-                            <Text
+                            {/* <Text
                                 size="extraLarge"
                                 emphasis="bold"
                                 alignment="center"
                             >
                                 Editor Settings
-                            </Text>
+                            </Text> */}
                             <BlockStack spacing="tight">
                                 <TextField
                                     label="Template ID"
                                     value={templateId}
                                     onChange={handleTemplateIdChange}
                                     disabled={isSaving}
-                                    helpText="Enter the template ID for this variant (e.g., tpl686566)"
+                                // helpText="Enter the template ID for this variant (e.g., tpl686566)"
                                 />
                                 <TextField
                                     label="Design ID"
                                     value={designId}
                                     onChange={handleDesignIdChange}
                                     disabled={isSaving}
-                                    helpText="Enter the design ID for this variant"
+                                // helpText="Enter the design ID for this variant"
                                 />
                                 <TextField
                                     label="Material ID"
                                     value={materialId}
                                     onChange={handleMaterialIdChange}
                                     disabled={isSaving}
-                                    helpText="Enter the material ID for this variant"
+                                // helpText="Enter the material ID for this variant"
                                 />
                                 <TextField
                                     label="Personalisations"
                                     value={personalisations}
                                     onChange={handlePersonalisationsChange}
                                     disabled={isSaving}
-                                    helpText="Enter personalisations value (e.g., f2d)"
+                                // helpText="Enter personalisations value (e.g., f2d)"
                                 />
                             </BlockStack>
                         </BlockStack>
                     )}
                     {isAdditionalSettingsOpen && (
                         <BlockStack spacing="base">
-                            <Text
+                            {/* <Text
                                 size="extraLarge"
                                 emphasis="bold"
                                 alignment="center"
                             >
                                 Additional Settings
-                            </Text>
+                            </Text> */}
                             <BlockStack spacing="tight">
                                 <TextField
                                     label="F2D Article Code"
                                     value={f2dArticleCode}
                                     onChange={handleF2dArticleCodeChange}
                                     disabled={isSaving}
-                                    helpText="Enter the F2D article code for this variant"
+                                // helpText="Enter the F2D article code for this variant"
                                 />
                                 <TextField
                                     label="Sheets Max"
@@ -816,7 +807,7 @@ function PelemanProductEditorSettings() {
                                     onChange={handleSheetsMaxChange}
                                     disabled={isSaving}
                                     type="number"
-                                    helpText="Enter the maximum number of sheets (e.g., 15)"
+                                // helpText="Enter the maximum number of sheets (e.g., 15)"
                                 />
                                 <TextField
                                     label="Included Pages"
@@ -824,14 +815,14 @@ function PelemanProductEditorSettings() {
                                     onChange={handleIncludedPagesChange}
                                     disabled={isSaving}
                                     type="number"
-                                    helpText="Enter the number of included pages (e.g., 0)"
+                                // helpText="Enter the number of included pages (e.g., 0)"
                                 />
                                 <TextField
                                     label="Product Unit Code"
                                     value={productUnitCode}
                                     onChange={handleProductUnitCodeChange}
                                     disabled={isSaving}
-                                    helpText="Enter the product unit code (e.g., BOX)"
+                                // helpText="Enter the product unit code (e.g., BOX)"
                                 />
                             </BlockStack>
                         </BlockStack>
