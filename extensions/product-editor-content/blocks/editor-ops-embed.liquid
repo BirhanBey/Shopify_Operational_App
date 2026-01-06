@@ -1,0 +1,118 @@
+{%- comment -%}
+  App Embed: Editor Ops Embed
+  Unified embed block for Peleman Editor Connection App.
+  Handles logic for both Product and Cart pages.
+{%- endcomment -%}
+
+{%- assign is_product_page = false -%}
+{%- if request.page_type == 'product' -%}
+  {%- assign is_product_page = true -%}
+{%- endif -%}
+
+{%- assign is_cart_page = false -%}
+{%- if request.page_type == 'cart' -%}
+  {%- assign is_cart_page = true -%}
+{%- endif -%}
+
+{%- if is_product_page -%}
+  <script>
+    // Build variant metafields map for Product Page logic
+    const variantMetafieldsMap = {};
+    {% if product.variants %}
+      {% for variant in product.variants %}
+        {% assign use_project_ref_metafield = variant.metafields.custom.use_project_reference %}
+        {% assign template_id_metafield = variant.metafields.custom.template_id %}
+        {% assign material_id_metafield = variant.metafields.custom.material_id %}
+        {% assign use_image_uploads_metafield = variant.metafields.custom.use_image_uploads %}
+        {% assign editor_type_metafield = variant.metafields.custom.editor_type %}
+
+        {% assign use_project_ref = false %}
+        {% if use_project_ref_metafield %}
+          {% assign metafield_value = use_project_ref_metafield.value %}
+          {% if metafield_value == "true" or metafield_value == true %}
+            {% assign use_project_ref = true %}
+          {% endif %}
+        {% endif %}
+
+        {% assign use_image_uploads = false %}
+        {% if use_image_uploads_metafield %}
+          {% assign uploads_value = use_image_uploads_metafield.value %}
+          {% if uploads_value == "true" or uploads_value == true %}
+            {% assign use_image_uploads = true %}
+          {% endif %}
+        {% endif %}
+
+        {% assign template_id = template_id_metafield.value | default: null %}
+        {% assign material_id = material_id_metafield.value | default: null %}
+
+        {% assign editor_type = null %}
+        {% if editor_type_metafield and editor_type_metafield.value %}
+          {% assign editor_type = editor_type_metafield.value | first | default: null %}
+        {% endif %}
+
+        variantMetafieldsMap['{{ variant.id }}'] = {
+          useProjectReference: {{ use_project_ref }},
+          templateId: {% if template_id %}'{{ template_id }}'{% else %}null{% endif %},
+          materialId: {% if material_id %}'{{ material_id }}'{% else %}null{% endif %},
+          useImageUploads: {{ use_image_uploads }},
+          editorType: {% if editor_type %}'{{ editor_type }}'{% else %}null{% endif %}
+        };
+        variantMetafieldsMap['gid://shopify/ProductVariant/{{ variant.id }}'] = variantMetafieldsMap['{{ variant.id }}'];
+      {% endfor %}
+    {% endif %}
+
+    window.__EDITOR_PRODUCT_CONFIG__ = Object.assign(
+      {},
+      window.__EDITOR_PRODUCT_CONFIG__,
+      {
+        appUrl: '{{ block.settings.app_url | escape }}',
+        shop: '{{ shop.permanent_domain }}',
+        variantMetafields: variantMetafieldsMap,
+      },
+    );
+    window.__EDITOR_PRODUCT_OPERATIONS_ACTIVE = true;
+  </script>
+  <script src="{{ 'product-page-operations.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{%- if is_cart_page -%}
+  <script>
+    window.__EDITOR_CART_CONFIG__ = Object.assign({}, window.__EDITOR_CART_CONFIG__, {
+      appUrl: '{{ block.settings.app_url | escape }}',
+      shop: '{{ shop.permanent_domain }}',
+      feeVariantId: '{{ block.settings.fee_variant_id | escape }}',
+    });
+  </script>
+  <script src="{{ 'cart-page-operations.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Editor Ops Embed",
+  "target": "body",
+  "settings": [
+    {
+      "type": "header",
+      "content": "General Settings"
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "info": "Your app backend URL (e.g., https://your-app.ngrok.io)",
+      "default": "https://peleman-app-backend.fly.dev"
+    },
+    {
+      "type": "header",
+      "content": "Cart Settings"
+    },
+    {
+      "type": "text",
+      "id": "fee_variant_id",
+      "label": "Fee Product Variant ID",
+      "info": "Variant ID of the personalisation fee product (e.g., 1234567890 or gid://shopify/ProductVariant/1234567890)",
+      "default": "46245975392414"
+    }
+  ]
+}
+{% endschema %}

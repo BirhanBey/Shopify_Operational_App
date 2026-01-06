@@ -222,8 +222,9 @@ Configure editor settings per variant using Shopify metafields:
 2. **Enable Theme Extensions**:
    - Go to **Online Store** → **Themes** → **Customize**
    - Navigate to **App embeds**
-   - Enable **Product Editor Content** block
-   - Configure the **App URL** setting
+   - Enable **Editor Ops Embed** block
+   - Configure the **App URL** setting (e.g., `https://your-app.ngrok.io`)
+   - Configure the **Fee Product Variant ID** setting
 
 ### Product Page Flow
 
@@ -263,8 +264,7 @@ peleman-editor-connection-app/
 │   │   │   ├── product-page-operations.js
 │   │   │   └── cart-page-operations.js
 │   │   └── blocks/              # Liquid templates
-│   │       ├── product-page-operations-embed.liquid
-│   │       └── cart-page-operations-embed.liquid
+│   │       └── editor-ops-embed.liquid
 │   └── peleman-product-editor-settings/  # Admin UI extension
 │       └── src/
 │           └── Index.jsx        # Settings page component
