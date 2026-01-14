@@ -34,51 +34,6 @@
 
   const isCartPage = window.location.pathname.includes("/cart");
 
-  // Setup cart button redirect (works on all pages)
-  function setupCartButtonRedirect() {
-    const cartButton = document.querySelector(
-      'button[data-testid="cart-drawer-trigger"]',
-    );
-    if (cartButton && !cartButton.dataset.redirectHandlerAttached) {
-      cartButton.addEventListener(
-        "click",
-        function (event) {
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-
-          // Get cart URL from Shopify routes if available
-          const cartUrl =
-            (window.Shopify && window.Shopify.routes?.cart_url) || "/cart";
-          window.location.href = cartUrl;
-        },
-        true, // Use capture phase to intercept before other handlers
-      );
-      cartButton.dataset.redirectHandlerAttached = "true";
-    }
-  }
-
-  // Setup cart button redirect on all pages
-  function initCartButtonRedirect() {
-    setupCartButtonRedirect();
-
-    // Also observe for dynamically added cart buttons
-    const observer = new MutationObserver(() => {
-      setupCartButtonRedirect();
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initCartButtonRedirect);
-  } else {
-    initCartButtonRedirect();
-  }
-
   // Only process cart items on cart page
   if (!isCartPage) {
     return;

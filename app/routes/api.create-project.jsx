@@ -455,12 +455,28 @@ async function createProjectResponse({ shop, overrides = {} }) {
     }
 }
 export const loader = async ({ request }) => {
+    // Handle OPTIONS preflight request
+    if (request.method === "OPTIONS") {
+        return new Response(null, {
+            status: 200,
+            headers: corsHeaders,
+        });
+    }
+
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
-    return createProjectResponse({ request, shop });
+    return createProjectResponse({ shop });
 };
 
 export const action = async ({ request }) => {
+    // Handle OPTIONS preflight request
+    if (request.method === "OPTIONS") {
+        return new Response(null, {
+            status: 200,
+            headers: corsHeaders,
+        });
+    }
+
     if (request.method !== "POST") {
         return new Response(
             JSON.stringify({
@@ -480,16 +496,26 @@ export const action = async ({ request }) => {
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
 
+    console.log(`${LOG_PREFIX} [ACTION] Received request:`, {
+        method: request.method,
+        url: request.url,
+        shop: shop,
+        contentType: request.headers.get("Content-Type"),
+    });
+
     let payload = {};
     try {
         const bodyText = await request.text();
+        console.log(`${LOG_PREFIX} [ACTION] Request body text:`, bodyText);
         payload = bodyText ? JSON.parse(bodyText) : {};
+        console.log(`${LOG_PREFIX} [ACTION] Parsed payload:`, JSON.stringify(payload, null, 2));
     } catch (error) {
         console.error(`${LOG_PREFIX} [ACTION] Invalid JSON payload`, error);
         return new Response(
             JSON.stringify({
                 success: false,
                 error: "Invalid JSON payload",
+                details: error.message,
             }),
             {
                 status: 400,
@@ -502,9 +528,26 @@ export const action = async ({ request }) => {
     }
 
     const overrides = payload?.overrides && typeof payload.overrides === "object" ? payload.overrides : {};
+    console.log(`${LOG_PREFIX} [ACTION] Extracted overrides:`, JSON.stringify(overrides, null, 2));
+
+    if (!shop) {
+        console.error(`${LOG_PREFIX} [ACTION] Missing shop parameter`);
+        return new Response(
+            JSON.stringify({
+                success: false,
+                error: "Shop parameter is required",
+            }),
+            {
+                status: 400,
+                headers: {
+                    "Content-Type": "application/json",
+                    ...corsHeaders,
+                },
+            }
+        );
+    }
 
     return createProjectResponse({
-        request,
         shop,
         overrides,
     });

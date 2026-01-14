@@ -14,6 +14,11 @@
   {%- assign is_cart_page = true -%}
 {%- endif -%}
 
+{%- comment -%}
+  Global Cart Button Redirect - Load on all pages
+{%- endcomment -%}
+<script src="{{ 'global-cart-button.js' | asset_url }}" defer></script>
+
 {%- if is_product_page -%}
   <script>
     // Build variant metafields map for Product Page logic

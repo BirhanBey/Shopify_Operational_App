@@ -160,6 +160,12 @@
     // This ensures the backend receives an explicit boolean instead of defaulting to true.
     payload.overrides.designlater = designLater === true;
 
+    console.log(`${LOG_PREFIX} [callCreateProjectAPI] Calling API:`, {
+      apiUrl,
+      payload,
+      shopDomain,
+    });
+
     return fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -167,13 +173,34 @@
       },
       body: JSON.stringify(payload),
     })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      .then(async (response) => {
+        console.log(`${LOG_PREFIX} [callCreateProjectAPI] Response status:`, response.status, response.statusText);
+        
+        let errorData = null;
+        try {
+          const text = await response.text();
+          console.log(`${LOG_PREFIX} [callCreateProjectAPI] Response body:`, text);
+          errorData = text ? JSON.parse(text) : null;
+        } catch (e) {
+          console.error(`${LOG_PREFIX} [callCreateProjectAPI] Failed to parse error response:`, e);
         }
-        return response.json();
+
+        if (!response.ok) {
+          const errorMessage = errorData?.error || errorData?.details || `HTTP ${response.status}: ${response.statusText}`;
+          console.error(`${LOG_PREFIX} [callCreateProjectAPI] API error:`, {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorMessage,
+            errorData,
+          });
+          throw new Error(errorMessage);
+        }
+
+        return errorData || response.json();
       })
       .then((data) => {
+        console.log(`${LOG_PREFIX} [callCreateProjectAPI] Success response:`, data);
+        
         if (!data.success) {
           throw new Error(data.error || data.details || "Failed to create project");
         }
@@ -373,7 +400,7 @@
   }
 
   // Create project reference input field
-  function createProjectReferenceInput() {
+  function createProjectReferenceInput(savedValue = null) {
     const inputContainer = document.createElement("div");
     inputContainer.id = "project-reference-input-container";
     inputContainer.style.cssText = `
@@ -399,6 +426,10 @@
     input.id = "project-reference-input";
     input.name = "properties[project_reference]";
     input.placeholder = "Enter project reference";
+    if (savedValue) {
+      input.value = savedValue;
+      console.log(`${LOG_PREFIX} [DEBUG] Restored project reference input value:`, savedValue);
+    }
     input.style.cssText = `
       width: 100%;
       padding: 0.5rem;
@@ -767,28 +798,6 @@
       return;
     }
 
-    // Persist the currently active variant ID so other UI handlers
-    // (like personalisation dropdown change) can stay in sync without
-    // needing to guess from the DOM again.
-    currentSelectedVariantId = selectedVariantId;
-
-    // Find the main variant-picker element so we can keep the layout
-    // stable regardless of re-renders or personalisation changes.
-    // In some themes the add-to-cart form is not inside the variant-picker,
-    // so we first try closest(), then fall back to a generic query.
-    let variantPicker =
-      form.closest("variant-picker") ||
-      document.querySelector("variant-picker.variant-picker") ||
-      document.querySelector("variant-picker");
-
-    // Remove existing input if present
-    const existingInput = document.getElementById(
-      "project-reference-input-container",
-    );
-    if (existingInput) {
-      existingInput.remove();
-    }
-
     // Check if selected variant has use_project_reference enabled and a compatible
     // personalisation mode selected.
     const variantData = getVariantConfigById(selectedVariantId);
@@ -808,6 +817,52 @@
       shouldShowProjectReference,
       isEditorActiveForVariant,
     });
+
+    // Check if we need to update at all - if input already exists and visibility hasn't changed, skip
+    const existingInput = document.getElementById(
+      "project-reference-input-container",
+    );
+    const inputShouldExist = shouldShowProjectReference && isEditorActiveForVariant;
+    
+    if (existingInput && inputShouldExist) {
+      // Input already exists and should exist - just update the variant ID tracking
+      // Don't recreate the input to preserve user's input value
+      currentSelectedVariantId = selectedVariantId;
+      
+      // Ensure button label is still correct
+      const currentMode = getCurrentPersonalisationMode();
+      if (currentMode === "design_online") {
+        updateAddToCartButtonLabelForMode(form, "design_online");
+      }
+      
+      console.log(`${LOG_PREFIX} [DEBUG] Project reference input already exists, skipping recreation to preserve value`);
+      return;
+    }
+
+    // Persist the currently active variant ID so other UI handlers
+    // (like personalisation dropdown change) can stay in sync without
+    // needing to guess from the DOM again.
+    currentSelectedVariantId = selectedVariantId;
+
+    // Find the main variant-picker element so we can keep the layout
+    // stable regardless of re-renders or personalisation changes.
+    // In some themes the add-to-cart form is not inside the variant-picker,
+    // so we first try closest(), then fall back to a generic query.
+    let variantPicker =
+      form.closest("variant-picker") ||
+      document.querySelector("variant-picker.variant-picker") ||
+      document.querySelector("variant-picker");
+
+    // Save existing input value before removing (if present)
+    let savedInputValue = null;
+    if (existingInput) {
+      const inputElement = existingInput.querySelector("#project-reference-input");
+      if (inputElement) {
+        savedInputValue = inputElement.value;
+        console.log(`${LOG_PREFIX} [DEBUG] Saving project reference input value before update:`, savedInputValue);
+      }
+      existingInput.remove();
+    }
 
     // Find the position to insert input (between variant form and add to cart button)
     // Try multiple selectors for add to cart button
@@ -870,11 +925,41 @@
 
     if (shouldShowProjectReference && isEditorActiveForVariant) {
       const createAndAttachProjectReference = (insertFn) => {
-        const inputContainer = createProjectReferenceInput();
+        const inputContainer = createProjectReferenceInput(savedInputValue);
         if (!inputContainer) {
           return;
         }
         insertFn(inputContainer);
+        
+        // Ensure button label is correct after input is created/updated
+        const currentMode = getCurrentPersonalisationMode();
+        if (currentMode === "design_online") {
+          updateAddToCartButtonLabelForMode(form, "design_online");
+        }
+        
+        // Prevent input blur from triggering form updates
+        const inputElement = inputContainer.querySelector("#project-reference-input");
+        if (inputElement) {
+          inputElement.addEventListener("blur", (e) => {
+            // Stop propagation and prevent default to prevent form change events
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            console.log(`${LOG_PREFIX} [DEBUG] Project reference input blurred, value preserved:`, inputElement.value);
+          }, true);
+          
+          inputElement.addEventListener("input", (e) => {
+            // Stop propagation to prevent form change events
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }, true);
+          
+          inputElement.addEventListener("change", (e) => {
+            // Stop propagation to prevent form change events from triggering variant updates
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            console.log(`${LOG_PREFIX} [DEBUG] Project reference input changed, preventing form update:`, inputElement.value);
+          }, true);
+        }
       };
 
       if (variantPicker) {
@@ -1024,6 +1109,12 @@
     // Listen for custom variant change events
     form.addEventListener("change", (event) => {
       const target = event.target;
+      // Ignore project reference input changes - they shouldn't trigger variant updates
+      if (target.id === "project-reference-input" || target.name === "properties[project_reference]") {
+        console.log(`${LOG_PREFIX} [DEBUG] Ignoring project reference input change event`);
+        return;
+      }
+      
       if (
         target.type === "radio" ||
         target.tagName === "SELECT" ||
