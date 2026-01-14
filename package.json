@@ -17,7 +17,13 @@
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
-    "typecheck": "react-router typegen && tsc --noEmit"
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "test": "node tests/save-test-results.js",
+    "test:raw": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:save": "vitest run --coverage --reporter=verbose 2>&1 | Out-File -FilePath TestResults.txt -Encoding utf8 -Force",
+    "test:ui": "vitest --ui"
   },
   "type": "module",
   "engines": {
@@ -35,20 +41,26 @@
     "@shopify/ui-extensions-react": "^2024.10.0",
     "isbot": "^5.1.31",
     "react": "^18.3.1",
-    "react-reconciler": "^0.29.0",
     "react-dom": "^18.3.1",
+    "react-reconciler": "^0.29.0",
     "react-router": "^7.9.3",
     "vite-tsconfig-paths": "^5.1.4"
   },
   "devDependencies": {
     "@shopify/api-codegen-preset": "^1.2.0",
     "@shopify/polaris-types": "^1.0.1",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
     "@types/eslint": "^9.6.1",
     "@types/node": "^22.18.8",
     "@types/react": "^18.3.25",
     "@types/react-dom": "^18.3.7",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^1.0.4",
+    "@vitest/ui": "^1.0.4",
     "eslint": "^8.57.1",
     "eslint-import-resolver-typescript": "^3.10.1",
     "eslint-plugin-import": "^2.32.0",
@@ -56,10 +68,13 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
     "graphql-config": "^5.1.1",
+    "jsdom": "^27.4.0",
+    "msw": "^2.0.0",
     "prettier": "^3.6.2",
     "prisma": "^6.16.3",
     "typescript": "^5.9.3",
-    "vite": "^6.3.6"
+    "vite": "^6.3.6",
+    "vitest": "^1.0.4"
   },
   "workspaces": [
     "extensions/*"

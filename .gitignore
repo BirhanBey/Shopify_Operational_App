@@ -31,6 +31,13 @@ prisma/*.db
 logs/
 *.log
 
+# Test artifacts
+TestResults.txt
+coverage/
+.nyc_output/
+*.lcov
+.vitest/
+
 # Misc
 .pnp*
 node_modules
