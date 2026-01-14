@@ -4,14 +4,14 @@
 
 - Fixed project reference input value preservation bug where input would clear when user unfocused the field.
 - Added event propagation prevention for project reference input blur, input, and change events to prevent form-wide updates.
-- Created global-cart-button.js file to handle cart button redirects on all pages using MutationObserver.
-- Moved cart button redirect logic from cart-page-operations.js to global-cart-button.js for better separation of concerns.
-- Added comprehensive unit tests for global-cart-button.js covering button detection, event handling, and MutationObserver functionality.
+- Created global-mini-cart-button.js file to handle cart button redirects on all pages using MutationObserver.
+- Moved cart button redirect logic from cart-page-operations.js to global-mini-cart-button.js for better separation of concerns.
+- Added comprehensive unit tests for global-mini-cart-button.js covering button detection, event handling, and MutationObserver functionality.
 - Added regression tests for project reference input value preservation in product-page-operations.test.js.
 - Added OPTIONS request handling tests for CORS preflight in api.create-project.test.jsx.
 - Fixed CORS preflight handling by adding explicit OPTIONS method support in both action and loader functions of api.create-project.jsx.
 - Added detailed logging to api.create-project.jsx for debugging 400 Bad Request errors.
-- Updated editor-ops-embed.liquid to include global-cart-button.js script on all pages.
+- Updated editor-ops-embed.liquid to include global-mini-cart-button.js script on all pages.
 - Removed cart-page-operations.js script from cart page condition in editor-ops-embed.liquid as functionality moved to global file.
 - Added 85 passing unit tests covering app routes, extensions, and database operations.
 

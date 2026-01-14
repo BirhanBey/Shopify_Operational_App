@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
 
-describe('global-cart-button.js', () => {
+describe('global-mini-cart-button.js', () => {
   let dom;
   let window;
   let document;
