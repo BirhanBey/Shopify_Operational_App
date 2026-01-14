@@ -191,6 +191,35 @@ describe('api.create-project.jsx', () => {
             expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
             expect(response.headers.get('Access-Control-Allow-Methods')).toContain('GET');
             expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('OPTIONS');
+        });
+
+        it('should handle OPTIONS request in action handler', async () => {
+            const request = new Request('http://localhost/api/create-project?shop=test-shop.myshopify.com', {
+                method: 'OPTIONS',
+            });
+            
+            const response = await action({ request });
+
+            expect(response.status).toBe(200);
+            expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('OPTIONS');
+        });
+
+        it('should handle OPTIONS request in loader handler', async () => {
+            const request = new Request('http://localhost/api/create-project?shop=test-shop.myshopify.com', {
+                method: 'OPTIONS',
+            });
+            
+            const response = await loader({ request });
+
+            expect(response.status).toBe(200);
+            expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+            expect(response.headers.get('Access-Control-Allow-Methods')).toContain('OPTIONS');
         });
     });
 });

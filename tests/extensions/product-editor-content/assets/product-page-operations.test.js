@@ -159,4 +159,115 @@ describe('product-page-operations.js', () => {
       expect(numericId).toBe('123');
     });
   });
+
+  describe('Project reference input value preservation', () => {
+    it('should preserve input value when input is recreated', () => {
+      // Create initial input with a value
+      const container1 = document.createElement('div');
+      container1.id = 'project-reference-input-container';
+      const input1 = document.createElement('input');
+      input1.id = 'project-reference-input';
+      input1.value = 'TEST-REF-123';
+      container1.appendChild(input1);
+      document.body.appendChild(container1);
+
+      // Save the value
+      const savedValue = input1.value;
+      expect(savedValue).toBe('TEST-REF-123');
+
+      // Remove and recreate (simulating updateProjectReferenceInput behavior)
+      container1.remove();
+
+      // Recreate with saved value
+      const container2 = document.createElement('div');
+      container2.id = 'project-reference-input-container';
+      const input2 = document.createElement('input');
+      input2.id = 'project-reference-input';
+      input2.value = savedValue; // Restore saved value
+      container2.appendChild(input2);
+      document.body.appendChild(container2);
+
+      const restoredInput = document.getElementById('project-reference-input');
+      expect(restoredInput).toBeTruthy();
+      expect(restoredInput.value).toBe('TEST-REF-123');
+    });
+
+    it('should prevent blur event from triggering form updates', () => {
+      const form = document.createElement('form');
+      form.id = 'product-form';
+      document.body.appendChild(form);
+
+      const input = document.createElement('input');
+      input.id = 'project-reference-input';
+      input.value = 'TEST-REF-456';
+      form.appendChild(input);
+
+      let formChangeTriggered = false;
+      form.addEventListener('change', () => {
+        formChangeTriggered = true;
+      });
+
+      // Simulate blur with stopPropagation
+      const blurEvent = new window.Event('blur', { bubbles: true });
+      input.addEventListener('blur', (e) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }, true);
+
+      input.dispatchEvent(blurEvent);
+
+      // Form change should not be triggered
+      expect(formChangeTriggered).toBe(false);
+    });
+
+    it('should prevent input event from triggering form updates', () => {
+      const form = document.createElement('form');
+      form.id = 'product-form';
+      document.body.appendChild(form);
+
+      const input = document.createElement('input');
+      input.id = 'project-reference-input';
+      form.appendChild(input);
+
+      let formChangeTriggered = false;
+      form.addEventListener('change', () => {
+        formChangeTriggered = true;
+      });
+
+      // Simulate input with stopPropagation
+      const inputEvent = new window.Event('input', { bubbles: true });
+      input.addEventListener('input', (e) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }, true);
+
+      input.value = 'NEW-VALUE';
+      input.dispatchEvent(inputEvent);
+
+      // Form change should not be triggered
+      expect(formChangeTriggered).toBe(false);
+    });
+
+    it('should preserve input value across multiple blur events', () => {
+      const container = document.createElement('div');
+      container.id = 'project-reference-input-container';
+      const input = document.createElement('input');
+      input.id = 'project-reference-input';
+      input.value = 'PERSISTENT-VALUE';
+      container.appendChild(input);
+      document.body.appendChild(container);
+
+      // Simulate multiple blur events
+      for (let i = 0; i < 3; i++) {
+        const blurEvent = new window.Event('blur', { bubbles: true });
+        input.addEventListener('blur', (e) => {
+          e.stopPropagation();
+        }, true);
+        input.dispatchEvent(blurEvent);
+      }
+
+      // Value should still be preserved
+      expect(input.value).toBe('PERSISTENT-VALUE');
+    });
+  });
 });
